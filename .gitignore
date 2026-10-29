@@ -1,0 +1,80 @@
+# ---------------------------------------------------------------
+# md-note-toolkit
+# NOTE: *.md must NEVER be blanket-ignored here.
+# README.md, README.fa.md, ROADMAP.md, docs/*.md and examples/*.md
+# are product documentation and must stay in version control.
+# The old repo ignored *.md; that rule must not be carried over.
+# ---------------------------------------------------------------
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Packaging / build output
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Test and tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# ---------------------------------------------------------------
+# Tool runtime artifacts, produced by the scripts, never hand-written:
+#   *.rtl.md  <- md_rtl_advance_gui.OUT_SUFFIX
+#   *.out.md  <- md_color_gui.OUT_SUFFIX
+#   *.raw.md  <- md_batch.py reverse output
+#   *.bak     <- replace-original fallback
+# Suffix patterns only, so docs and examples stay tracked.
+# ---------------------------------------------------------------
+*.rtl.md
+*.out.md
+*.raw.md
+*.bak
+
+# Local scratch space for experiments and bug reproduction
+/scratch/
+
+# ---------------------------------------------------------------
+# OS and editor noise
+# ---------------------------------------------------------------
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+._*
+*.swp
+*.swo
+*~
+
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+
+# Secrets, should never exist here but guard anyway
+.env
+.env.*
+*.pem
+*.key
+
+# ---------------------------------------------------------------
+# Deliberately NOT ignored:
+#   assets/md.css   - shipped with the tool, part of the product
+#   tests/fixtures/ - test input must be in the repo for CI
+#   *.cmd / *.bat   - no launcher is shipped, the entry point is
+#                     `python md_batch.py`. If a personal launcher
+#                     is ever added, ignore it by file name.
+# ---------------------------------------------------------------
