@@ -29,14 +29,28 @@ HEAD_PATTERN = r'^\s*<link\s+rel="stylesheet"'
 FOLD_OPEN = ("^!",)  # e.g. "^!" or "^! My title"
 FOLD_CLOSE = ("!^",)  # e.g. "!^"
 
-# True -> only blank-line-separated groups that contain Persian text get wrapped.
-# False -> old behaviour: every text group is wrapped.
+# True -> only blank-line-separated groups holding right-to-left text get
+# wrapped. False -> old behaviour: every text group is wrapped.
 SMART_RTL = True
 
-# Heading levels (1-6) that decide wrapping regardless of Persian text,
+# Characters that count as right-to-left, i.e. the only thing smart mode uses to
+# decide whether a group needs <div dir="rtl">. Ranges below, in order: Hebrew,
+# Arabic (covers Persian پ چ ژ گ ک ی and Urdu, and Persian digits), Arabic
+# Supplement, Arabic Extended-A, and the two Arabic Presentation Forms blocks
+# (pre-shaped text pasted from PDFs or websites).
+# Narrow it to r"[\u0600-\u06FF]" for Arabic-script only, or add any other RTL
+# block you write in. Left-to-right scripts (Latin, CJK, Cyrillic, ...) must
+# stay out: including them would wrap LTR text in an RTL div and break it.
+# Watch out: Persian digits U+06F0-U+06F9 sit inside the Arabic block, so one
+# stray Persian digit in an English paragraph forces that whole group RTL.
+RTL_RE = re.compile(
+    r"[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]"
+)
+
+# Heading levels (1-6) that decide wrapping regardless of RTL text,
 # e.g. "2-3" or "1,4" (mixing is fine: "1,3-4"). Empty -> feature off.
 # Leading "-" or "^" inverts: those headings are never wrapped (stay LTR),
-# even if they contain Persian. Invalid parts and levels outside 1-6 are
+# even if they contain RTL text. Invalid parts and levels outside 1-6 are
 # silently ignored, so "0-10" means "all headings". Only affects smart mode.
 HEADING_LEVELS = "1-6"
 
@@ -47,10 +61,6 @@ OUT_SUFFIX = ".rtl.md"
 # Replace original: send the input file to the Recycle Bin (recoverable) and
 # write the result to its name. Default True -> the checkbox starts ticked.
 REPLACE_ORIGINAL = True
-
-# Arabic/Persian block: Persian letters (پ چ ژ گ ک ی) and Persian digits both fall
-# inside this range, so a stray Persian digit also forces a group to be RTL.
-PERSIAN_RE = re.compile(r"[\u0600-\u06FF]")
 
 # ATX heading: starts with 1-6 '#' (leading spaces allowed). Setext headings
 # (=== / --- under a line) are NOT matched — a bare --- is a separator.
@@ -69,8 +79,8 @@ def wrap_text(text_lines):
     return ['<div dir="rtl">', "", *text_lines, "", "</div>", ""]
 
 
-def has_persian(lines):
-    return any(PERSIAN_RE.search(line) for line in lines)
+def has_rtl_text(lines):
+    return any(RTL_RE.search(line) for line in lines)
 
 
 def parse_levels(text):
@@ -106,17 +116,17 @@ def heading_match(group, levels):
 
 def emit_group(group, output, levels, exclude=False):
     # One blank-line-separated block. Invert mode (exclude): a heading whose
-    # level is in `levels` is emitted raw — no wrapper at all, even if Persian.
-    # Normal mode: wrap if the group holds Persian text or such a heading.
+    # level is in `levels` is emitted raw — no wrapper at all, even if RTL.
+    # Normal mode: wrap if the group holds RTL text or such a heading.
     if exclude:
         if heading_match(group, levels):
             output.extend(group)
-        elif has_persian(group):
+        elif has_rtl_text(group):
             output.extend(wrap_text(group))
         else:
             output.extend(group)
         return
-    if has_persian(group) or heading_match(group, levels):
+    if has_rtl_text(group) or heading_match(group, levels):
         output.extend(wrap_text(group))
     else:
         output.extend(group)

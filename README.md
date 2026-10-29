@@ -186,6 +186,7 @@ hidden state. The GUI windows pre-fill from the same constants.
 | `FOOT_ENABLED`, `FOOT_OPEN` | `md_color_gui.py` | gloss token handling |
 | `OUT_SUFFIX`, `REPLACE_ORIGINAL` | `md_color_gui.py`, `md_rtl_advance_gui.py` | output naming |
 | `SMART_RTL` | `md_rtl_advance_gui.py` | wrap only blocks containing RTL script |
+| `RTL_RE` | `md_rtl_advance_gui.py` | which characters count as right-to-left |
 | `HEADING_LEVELS` | `md_rtl_advance_gui.py`, `md_reverse_gui.py` | `"2-6"`, `"1,3-4"`; prefix `^` inverts |
 | `AUTOCLOSE_HTML`, `HANDLE_HTML` | `md_rtl_advance_gui.py` | unclosed tag handling |
 | `FOLD_OPEN`, `FOLD_CLOSE`, `HEAD_PATTERN` | `md_rtl_advance_gui.py` | marker syntax, head line |
@@ -262,11 +263,15 @@ test_md_batch.py       unittest suite, no external fixtures
 
 - The Recycle Bin safety net is Windows-only. On other platforms, turn off
   `REPLACE_ORIGINAL` and write to a new file instead.
-- `SMART_RTL` detects right-to-left text with the range `[\u0600-\u06FF]`,
-  which covers Arabic-script languages. That range also includes Persian
-  digits, so a stray Persian digit inside an English paragraph forces it RTL -
-  the style rules forbid Persian digits for this reason. Other scripts need a
-  different range; making it configurable is on the roadmap.
+- `SMART_RTL` decides what to wrap using `RTL_RE`, which by default covers
+  Hebrew, Arabic (so Persian and Urdu included), the Arabic supplement and
+  extended blocks, and both Arabic presentation-forms blocks. Edit that one
+  pattern for any other RTL script. Left-to-right scripts must stay **out** of
+  it - adding CJK or Latin would wrap LTR text in an RTL div and break the
+  layout. Note that the Arabic block also contains Persian digits
+  `U+06F0-U+06F9`, so a stray Persian digit inside an English paragraph forces
+  that whole block RTL; the style rules forbid Persian digits for exactly this
+  reason.
 - Content inside a `^!` fold block is left raw, so RTL text there will not be
   right-aligned by the RTL pass.
 - The tool is deliberately marker-based, not a general Markdown parser. It does
@@ -280,8 +285,8 @@ Next steps, in order:
 
 - [ ] `examples/` - a before/after sample plus the measurement script behind the
       token numbers above
-- [ ] `SCRIPT_RE` - make the right-to-left detection range configurable so
-      CJK and Hebrew notes work the same way
+- [x] `RTL_RE` - right-to-left detection is now a documented top-of-file
+      config, widened from Arabic-only to Hebrew plus every Arabic block
 - [ ] non-Windows fallback for the Recycle Bin step
 - [ ] split `rules.md` into a universal spec and a personal preset example
 - [ ] `pytest` layout and CI on Windows plus Ubuntu
