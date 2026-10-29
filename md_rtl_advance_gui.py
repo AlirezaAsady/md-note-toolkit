@@ -43,9 +43,10 @@ SMART_RTL = True
 # stay out: including them would wrap LTR text in an RTL div and break it.
 # Watch out: Persian digits U+06F0-U+06F9 sit inside the Arabic block, so one
 # stray Persian digit in an English paragraph forces that whole group RTL.
-RTL_RE = re.compile(
+RTL_PATTERN = (
     r"[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]"
 )
+RTL_RE = re.compile(RTL_PATTERN)
 
 # Heading levels (1-6) that decide wrapping regardless of RTL text,
 # e.g. "2-3" or "1,4" (mixing is fine: "1,3-4"). Empty -> feature off.
@@ -79,8 +80,8 @@ def wrap_text(text_lines):
     return ['<div dir="rtl">', "", *text_lines, "", "</div>", ""]
 
 
-def has_rtl_text(lines):
-    return any(RTL_RE.search(line) for line in lines)
+def has_rtl_text(lines, rtl_re=RTL_RE):
+    return any(rtl_re.search(line) for line in lines)
 
 
 def parse_levels(text):
@@ -114,25 +115,25 @@ def heading_match(group, levels):
     return bool(m) and len(m.group(1)) in levels
 
 
-def emit_group(group, output, levels, exclude=False):
+def emit_group(group, output, levels, exclude=False, rtl_re=RTL_RE):
     # One blank-line-separated block. Invert mode (exclude): a heading whose
     # level is in `levels` is emitted raw — no wrapper at all, even if RTL.
     # Normal mode: wrap if the group holds RTL text or such a heading.
     if exclude:
         if heading_match(group, levels):
             output.extend(group)
-        elif has_rtl_text(group):
+        elif has_rtl_text(group, rtl_re):
             output.extend(wrap_text(group))
         else:
             output.extend(group)
         return
-    if has_rtl_text(group) or heading_match(group, levels):
+    if has_rtl_text(group, rtl_re) or heading_match(group, levels):
         output.extend(wrap_text(group))
     else:
         output.extend(group)
 
 
-def flush(text_lines, output, smart=False, levels=(), exclude=False):
+def flush(text_lines, output, smart=False, levels=(), exclude=False, rtl_re=RTL_RE):
     if not smart:
         # Wrap collected text if it has content, otherwise copy as is
         if has_text(text_lines):
@@ -147,12 +148,12 @@ def flush(text_lines, output, smart=False, levels=(), exclude=False):
             group.append(line)
             continue
         if group:
-            emit_group(group, output, levels, exclude)
+            emit_group(group, output, levels, exclude, rtl_re)
             group = []
         if output and output[-1] != "":
             output.append("")  # keep exactly one blank line between blocks
     if group:
-        emit_group(group, output, levels, exclude)
+        emit_group(group, output, levels, exclude, rtl_re)
 
 
 def parse_markers(text):
@@ -211,6 +212,7 @@ def process_file(
     smart=None,
     autoclose=None,
     heading_levels=None,
+    rtl_pattern=None,
 ):
     # Reads `path`, applies the RTL wrapping and RETURNS (text, warnings).
     # text is the whole result in the SOURCE file's line ending (LF or CRLF),
@@ -227,11 +229,24 @@ def process_file(
     smart = SMART_RTL if smart is None else smart
     autoclose = AUTOCLOSE_HTML if autoclose is None else autoclose
     heading_levels = HEADING_LEVELS if heading_levels is None else heading_levels
+    rtl_pattern = RTL_PATTERN if rtl_pattern is None else rtl_pattern
     exclude, levels = parse_levels(heading_levels)
     # Empty value disables the feature
     fold_open = tuple(fold_open) if fold_open else ()
     fold_close = tuple(fold_close) if fold_close else ()
     warnings = []
+    # Which characters count as right-to-left. Only consulted in smart mode, so
+    # no warning noise when smart is off. A bad or empty pattern never stops the
+    # run: it falls back to the default range and says so.
+    rtl_re = RTL_RE
+    if smart:
+        if rtl_pattern:
+            try:
+                rtl_re = re.compile(rtl_pattern)
+            except re.error as e:
+                warnings.append(f"Invalid RTL pattern: {e} - using the default range")
+        else:
+            warnings.append("Empty RTL pattern - using the default range")
     # فایل را می‌خواند (newline="" تا EOL واقعی منبع دیده و حفظ شود)
     log(f"Markdown file path: {path}")
     with open(path, encoding="utf-8", newline="") as f:
@@ -279,7 +294,7 @@ def process_file(
                 inside_fold = False
             continue
         if stripped.startswith("```"):  # fence (open or close)
-            flush(text_lines, output, smart, levels, exclude)
+            flush(text_lines, output, smart, levels, exclude, rtl_re)
             text_lines = []
             inside_code = not inside_code
             output.append(line)
@@ -288,7 +303,7 @@ def process_file(
         elif handle_html and (
             html_depth > 0 or (stripped.startswith("<") and OPEN_RE.match(stripped))
         ):
-            flush(text_lines, output, smart, levels, exclude)
+            flush(text_lines, output, smart, levels, exclude, rtl_re)
             text_lines = []
             html_depth += len(OPEN_RE.findall(line)) - len(CLOSE_RE.findall(line))
             html_depth = max(html_depth, 0)
@@ -300,14 +315,14 @@ def process_file(
                     html_depth = max(html_depth - 1, 0)
         elif stripped in fold_close or stripped.startswith(fold_open):
             # fold open: pass raw and switch to raw mode until the close marker
-            flush(text_lines, output, smart, levels, exclude)
+            flush(text_lines, output, smart, levels, exclude, rtl_re)
             text_lines = []
             output.append(line)
             inside_fold = True
         else:
             text_lines.append(line)
 
-    flush(text_lines, output, smart, levels, exclude)
+    flush(text_lines, output, smart, levels, exclude, rtl_re)
     if html_depth > 0:
         warnings.append(f"Unclosed HTML block (depth = {html_depth}).")
     if unclosed:
@@ -396,6 +411,7 @@ def main():
     fold_open_var = tk.StringVar(value=", ".join(FOLD_OPEN))
     fold_close_var = tk.StringVar(value=", ".join(FOLD_CLOSE))
     heading_var = tk.StringVar(value=HEADING_LEVELS)
+    rtl_var = tk.StringVar(value=RTL_PATTERN)
     replace_var = tk.BooleanVar(value=REPLACE_ORIGINAL)
 
     def get_path():
@@ -504,6 +520,7 @@ def main():
                 fold_open=parse_markers(fold_open_var.get()),
                 fold_close=parse_markers(fold_close_var.get()),
                 heading_levels=heading_var.get().strip(),
+                rtl_pattern=rtl_var.get().strip(),
             )
         except Exception as e:
             write_log(f"خطا: {e}")
@@ -525,48 +542,78 @@ def main():
     settings.columnconfigure(0, weight=1)
     settings.columnconfigure(1, weight=1)
 
-    # ردیف 0: دو چک‌باکس کنار هم
+    # ردیف 0 و 1: سه گزینه روشن/خاموش، بدون لیبل سرگردان در ستون کنارشان
     ttk.Checkbutton(
-        settings, text="راست‌چین هوشمند (فقط بخش‌های فارسی)", variable=smart_var
+        settings, text="راست‌چین هوشمند (فقط بخش‌های RTL)", variable=smart_var
     ).grid(row=0, column=0, sticky="w", padx=(0, 6), pady=(0, 4))
     ttk.Checkbutton(
         settings, text="پردازش تگ‌های HTML (خارج از div)", variable=handle_html_var
     ).grid(row=0, column=1, sticky="w", padx=(6, 0), pady=(0, 4))
-
-    # ردیف 1: چک‌باکس autoclose + لیبل سرصفحه
     ttk.Checkbutton(
         settings, text="بستن خودکار تگ بی‌بسته (قابل جست‌وجو)", variable=autoclose_var
-    ).grid(row=1, column=0, sticky="w", padx=(0, 6), pady=(0, 4))
-    ttk.Label(settings, text="الگوی سرصفحه (regex — خالی = غیرفعال)").grid(
-        row=1, column=1, sticky="w", padx=(6, 0), pady=(0, 4)
+    ).grid(row=1, column=0, sticky="w", padx=(0, 6), pady=(0, 8))
+
+    # ردیف 2: دکمه‌ی باز و بسته کردن الگوها. این فیلدها سطح‌بالایی‌اند و کاربر عادی
+    # هیچ‌وقت آن‌ها را تغییر نمی‌دهد، پس پیش‌فرض بسته‌اند تا فرم کوتاه بماند.
+    PATTERNS_SHOW = "+ الگوها (regex) - تنظیمات سطح‌بالایی"
+    PATTERNS_HIDE = "- الگوها (regex) - بستن"
+    patterns_open = tk.BooleanVar(value=False)
+
+    def toggle_patterns():
+        if patterns_open.get():  # باز است -> بسته شود
+            patterns.grid_forget()
+            patterns_open.set(False)
+            toggle_btn.config(text=PATTERNS_SHOW)
+        else:  # بسته است -> باز شود
+            patterns.grid(row=3, column=0, columnspan=2, sticky="ew")
+            patterns_open.set(True)
+            toggle_btn.config(text=PATTERNS_HIDE)
+
+    toggle_btn = ttk.Button(settings, text=PATTERNS_SHOW, command=toggle_patterns)
+    toggle_btn.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(0, 4))
+
+    # قاعده چیدمان: لیبل هر فیلد دقیقاً بالای همان فیلد، تا چشم دنبال لیبلِ ستون
+    # روبرو نگردد. کادر وقتی بسته است اصلاً در grid نیست، پس جایی اشغال نمی‌کند.
+    patterns = ttk.Frame(settings, padding=(4, 6, 4, 2))
+    patterns.columnconfigure(0, weight=1)
+    patterns.columnconfigure(1, weight=1)
+
+    ttk.Label(
+        patterns,
+        text="کاراکترهای راست به چپ - فقط در حالت هوشمند؛ خالی یا خطا = همان پیش فرض",
+    ).grid(row=0, column=0, columnspan=2, sticky="w")
+    ttk.Entry(patterns, textvariable=rtl_var).grid(
+        row=1, column=0, columnspan=2, sticky="ew", pady=(0, 8)
     )
 
-    # ردیف 2: فیلد سرصفحه (عرض کامل)
-    ttk.Entry(settings, textvariable=head_var).grid(
-        row=2, column=0, columnspan=2, sticky="ew", pady=(0, 8)
+    ttk.Label(patterns, text="الگوی سرصفحه (خالی = غیرفعال)").grid(
+        row=2, column=0, columnspan=2, sticky="w"
+    )
+    ttk.Entry(patterns, textvariable=head_var).grid(
+        row=3, column=0, columnspan=2, sticky="ew", pady=(0, 8)
     )
 
-    # ردیف 3–4: علامت‌های تاشو
-    ttk.Label(settings, text="شروع بلوک تاشو").grid(
-        row=3, column=0, sticky="w", padx=(0, 6)
+    ttk.Label(patterns, text="شروع بلوک تاشو").grid(
+        row=4, column=0, sticky="w", padx=(0, 6)
     )
-    ttk.Label(settings, text="پایان بلوک تاشو").grid(
-        row=3, column=1, sticky="w", padx=(6, 0)
+    ttk.Label(patterns, text="پایان بلوک تاشو").grid(
+        row=4, column=1, sticky="w", padx=(6, 0)
     )
-    ttk.Entry(settings, textvariable=fold_open_var).grid(
-        row=4, column=0, sticky="ew", padx=(0, 6)
+    ttk.Entry(patterns, textvariable=fold_open_var).grid(
+        row=5, column=0, sticky="ew", padx=(0, 6)
     )
-    ttk.Entry(settings, textvariable=fold_close_var).grid(
-        row=4, column=1, sticky="ew", padx=(6, 0)
+    ttk.Entry(patterns, textvariable=fold_close_var).grid(
+        row=5, column=1, sticky="ew", padx=(6, 0)
     )
 
-    # ردیف 5–6: سطح عنوان‌هایی که همیشه wrap می‌شوند (فقط حالت هوشمند)
+    # ردیف 4 و 5: سطح عنوان‌هایی که همیشه wrap می‌شوند (فقط حالت هوشمند).
+    # این فیلد بیرون از کادر تاشو می‌ماند: کاربر واقعاً با آن کار دارد.
     ttk.Label(
         settings,
         text="سطح عنوان‌ها: 2-6 = همیشه راست‌چین | ^2-6 یا -2-6 = هرگز (چپ‌چین) | خالی = خاموش",
-    ).grid(row=5, column=0, columnspan=2, sticky="w", padx=(0, 6), pady=(8, 0))
+    ).grid(row=4, column=0, columnspan=2, sticky="w", pady=(8, 0))
     ttk.Entry(settings, textvariable=heading_var).grid(
-        row=6, column=0, columnspan=2, sticky="ew", padx=(0, 6)
+        row=5, column=0, columnspan=2, sticky="ew"
     )
 
     # چیدمان پنجره
@@ -576,9 +623,9 @@ def main():
     frame.columnconfigure(1, weight=1)
     frame.rowconfigure(7, weight=1)
 
-    ttk.Label(frame, text="مسیر فایل ورودی (تایپ یا جای‌گذاری کن، یا انتخاب فایل را بزن):").grid(
-        row=0, column=0, columnspan=2, sticky="w"
-    )
+    ttk.Label(
+        frame, text="مسیر فایل ورودی (تایپ یا جای‌گذاری کن، یا انتخاب فایل را بزن):"
+    ).grid(row=0, column=0, columnspan=2, sticky="w")
 
     # کادر مسیر ورودی قابل ویرایش است
     path_entry = ttk.Entry(frame, textvariable=path_var)
