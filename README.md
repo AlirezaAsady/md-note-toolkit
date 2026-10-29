@@ -174,6 +174,9 @@ Rules for the markers:
 - Odd numbers of `^^` or `!!` on a line are left unchanged and reported as a
   warning, never silently guessed.
 
+The full grammar, the exact HTML each marker becomes, and the round-trip
+contract live in [`docs/SPEC.md`](docs/SPEC.md).
+
 ---
 
 ## Configuration
@@ -238,6 +241,11 @@ visual style in VS Code or a browser.
 language policy, section vocabulary, emphasis caps, table rules, gloss
 placement, exercises. It is **not** a requirement of the tool.
 
+The grammar it builds on - what each marker means, what HTML comes out, what
+must never be written by hand - is specified separately in
+[`docs/SPEC.md`](docs/SPEC.md). That file is language-agnostic and is what you
+hand to an AI when you want notes that conform to your own style.
+
 The intended workflow is to copy it and rewrite it with any AI: change the
 language pair, change the section names, change what gets emphasized. The
 scripts do not care what your rules say - they only apply the marker syntax.
@@ -253,6 +261,7 @@ md_color_gui.py        markers -> HTML spans, details, gloss colors
 md_rtl_advance_gui.py  RTL wrapping, smart mode, unclosed-tag detection
 md_reverse_gui.py      HTML -> markers, removes RTL wrappers and link line
 md.css                 default stylesheet
+docs/SPEC.md           marker grammar, generated HTML, round-trip contract
 rules.md               example note style specification
 md_batch_ai.md         compact CLI/API reference written for AI agents
 test_md_batch.py       unittest suite, no external fixtures
@@ -276,7 +285,12 @@ test_md_batch.py       unittest suite, no external fixtures
   that whole block RTL; the style rules forbid Persian digits for exactly this
   reason.
 - Content inside a `^!` fold block is left raw, so RTL text there will not be
-  right-aligned by the RTL pass.
+  right-aligned by the RTL pass. The generated block also forces LTR on the
+  assumption that folded content is code; if you fold prose instead, remove that
+  one div in `md_color_gui.py` (and its end tag) - see
+  [`docs/SPEC.md`](docs/SPEC.md) section 5.
+- The default summary of a titleless fold is Persian (`DEFAULT_SUMMARY`). Change
+  it in `md_color_gui.py` and `md_reverse_gui.py` together.
 - The tool is deliberately marker-based, not a general Markdown parser. It does
   not understand nested lists inside fold blocks or setext headings.
 
@@ -292,7 +306,8 @@ Next steps, in order:
       config, widened from Arabic-only to Hebrew plus every Arabic block
 - [x] non-Windows fallback for replacing originals - the old copy becomes a
       unique `<name>.bak` and the run reports it as a warning
-- [ ] split `rules.md` into a universal spec and a personal preset example
+- [x] `docs/SPEC.md` - the marker grammar, split out from any personal style
+- [ ] present `rules.md` as one example preset under `docs/`
 - [ ] `pytest` layout and CI on Windows plus Ubuntu
 
 ---

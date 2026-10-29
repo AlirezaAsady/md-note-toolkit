@@ -49,6 +49,10 @@ FOOT_SPAN_RE = re.compile(rf'<span class="[^"]*">{FOOT_TOKEN}</span>')
 # Marker syntax for collapsible blocks: "^! title" ... "!^"
 DETAILS_OPEN_RE = re.compile(r"^\^!(?:\s+(.*))?$")
 DETAILS_CLOSE = "!^"
+# Summary used for a fold block written as a bare "^!" with no title.
+# Change it to your own language here, but change the same constant in
+# md_reverse_gui.py too: reverse only turns a summary back into a bare "^!"
+# when the two strings are equal.
 DEFAULT_SUMMARY = "نمایش جواب"
 
 
@@ -114,6 +118,8 @@ def process(lines, foot_enabled=None):
             enabled = FOOT_ENABLED if foot_enabled is None else foot_enabled
             if not enabled or not FOOT_SPAN_RE.search(title):
                 title = title.rstrip()
+            # Folded content is assumed to be code, so the inner div forces LTR.
+            # Prefer RTL prose inside a fold? Remove that div and its end tag.
             out += [
                 f'<details dir="rtl">{eol}',
                 f"<summary>{title}</summary>{eol}",

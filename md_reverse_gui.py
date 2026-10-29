@@ -26,7 +26,9 @@ from tkinter import filedialog, ttk
 RULES = "h=!!, *=^^"
 FOOT_CLASSES = ("p", "g")
 FOOT_OPEN = "¹²³⁴⁵⁶⁷⁸⁹⁰"
-DEFAULT_SUMMARY = "نمایش جواب"  # summary text that means a bare "^!"
+# Summary text that means a bare "^!". Must stay equal to DEFAULT_SUMMARY in
+# md_color_gui.py, or a titleless fold no longer round-trips.
+DEFAULT_SUMMARY = "نمایش جواب"
 REVERSE_COLOR = True  # start value of the "Color" checkbox
 REMOVE_RTL = True  # start value of the "RTL (all)" checkbox
 HEADINGS_ONLY = False  # start value of the "RTL around headings only" checkbox
