@@ -182,6 +182,26 @@ def to_recycle_bin(path):
         raise OSError("Could not move the original file to the Recycle Bin")
 
 
+def retire_original(src):
+    """Move the original out of the way before the result takes its name.
+
+    Windows sends it to the Recycle Bin. Other platforms have no shell recycle
+    API, so the file is renamed to <name>.bak instead - still recoverable.
+    Returns the backup path, or None when the Recycle Bin was used.
+    """
+    if os.name == "nt":
+        to_recycle_bin(src)
+        return None
+    src = Path(src)
+    bak = Path(f"{src}.bak")
+    n = 2
+    while bak.exists():
+        bak = Path(f"{src}.bak.{n}")
+        n += 1
+    src.rename(bak)
+    return bak
+
+
 # ----------------------------------------------------------------------- GUI
 class App:
     def __init__(self, root):
@@ -378,10 +398,10 @@ class App:
                 tmp = src.with_name(src.name + ".tmp")
                 with open(tmp, "w", encoding="utf-8", newline="") as f:
                     f.write(data)
-                to_recycle_bin(src)
+                bak = retire_original(src)
                 os.replace(tmp, src)
                 tmp = None
-                self.log(f"Replaced: {src} (original is in the Recycle Bin)")
+                self.log(f"Replaced: {src} (original kept in {bak or 'the Recycle Bin'})")
             else:
                 dst_s = self.clean(self.out_var.get())
                 if not dst_s:

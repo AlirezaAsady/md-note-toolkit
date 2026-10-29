@@ -96,8 +96,9 @@ Four mechanisms, ordered by real impact:
 
 - **Python 3.10 or newer.** The code uses `Path | None` union annotations and
   `list[str]` generics, which need 3.10. Tested on 3.14. Nothing else required.
-- Windows for the Recycle Bin safety net used when replacing an original file.
-  Everywhere else works on Linux and macOS too.
+- Any operating system. When replacing an original file, Windows sends the old
+  copy to the Recycle Bin; Linux and macOS rename it to `<name>.bak` (unique,
+  never overwritten) and report that as a warning. Nothing is ever deleted.
 
 ---
 
@@ -261,8 +262,10 @@ test_md_batch.py       unittest suite, no external fixtures
 
 ## Known limitations
 
-- The Recycle Bin safety net is Windows-only. On other platforms, turn off
-  `REPLACE_ORIGINAL` and write to a new file instead.
+- Outside Windows there is no Recycle Bin, so each replace leaves one backup
+  behind: `notes.md.bak`, then `notes.md.bak.2`, and so on. Backups are never
+  overwritten, which means repeated runs accumulate files - clear them out when
+  you no longer need them. `*.bak` is gitignored.
 - `SMART_RTL` decides what to wrap using `RTL_RE`, which by default covers
   Hebrew, Arabic (so Persian and Urdu included), the Arabic supplement and
   extended blocks, and both Arabic presentation-forms blocks. Edit that one
@@ -287,7 +290,8 @@ Next steps, in order:
       token numbers above
 - [x] `RTL_RE` - right-to-left detection is now a documented top-of-file
       config, widened from Arabic-only to Hebrew plus every Arabic block
-- [ ] non-Windows fallback for the Recycle Bin step
+- [x] non-Windows fallback for replacing originals - the old copy becomes a
+      unique `<name>.bak` and the run reports it as a warning
 - [ ] split `rules.md` into a universal spec and a personal preset example
 - [ ] `pytest` layout and CI on Windows plus Ubuntu
 

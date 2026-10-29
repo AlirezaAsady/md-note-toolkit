@@ -358,6 +358,24 @@ def to_recycle_bin(path):
         raise OSError("Could not move the original file to the Recycle Bin")
 
 
+def retire_original(src):
+    # فایل اصلی را قبل از نشستن نتیجه روی نامش کنار می برد.
+    # در ویندوز به سطل آشغال میرود. در بقیه سیستم ها API سطل آشغال وجود ندارد،
+    # پس نامش به <name>.bak عوض میشود که هنوز قابل بازیابی است.
+    # خروجی: مسیر فایل پشتیبان، یا None وقتی سطل آشغال استفاده شد.
+    if os.name == "nt":
+        to_recycle_bin(src)
+        return None
+    src = Path(src)
+    bak = Path(f"{src}.bak")
+    n = 2
+    while bak.exists():
+        bak = Path(f"{src}.bak.{n}")
+        n += 1
+    src.rename(bak)
+    return bak
+
+
 # ---------- بخش پنجره ----------
 
 
@@ -443,10 +461,14 @@ def main():
                 tmp = src.with_name(src.name + ".tmp")
                 with open(tmp, "w", encoding="utf-8", newline="") as f:
                     f.write(text)
-                to_recycle_bin(src)
+                bak = retire_original(src)
                 os.replace(tmp, src)
                 tmp = None
-                write_log(f"جایگزین شد: {src} (فایل قبلی در سطل آشغال است)")
+                if bak is None:
+                    write_log(f"جایگزین شد: {src} (فایل قبلی در سطل آشغال است)")
+                else:
+                    write_log(f"جایگزین شد: {src}")
+                    write_log(f"فایل قبلی نگه داشته شد: {bak}")
             else:
                 dst_s = get_out_path()
                 if not dst_s:

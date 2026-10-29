@@ -191,6 +191,32 @@ def to_recycle_bin(src):
         ole32.CoUninitialize()
 
 
+def unique_bak(src):
+    # Never overwrite an earlier backup: notes.md.bak, notes.md.bak.2, ...
+    bak = Path(f"{src}.bak")
+    n = 2
+    while bak.exists():
+        bak = Path(f"{src}.bak.{n}")
+        n += 1
+    return bak
+
+
+def retire_original(src):
+    """Move the original out of the way before the result takes its name.
+
+    Windows sends it to the Recycle Bin. Other platforms have no shell recycle
+    API, so the file is renamed to <name>.bak instead - still recoverable, and
+    *.bak is gitignored. Returns the backup path, or None when the Recycle Bin
+    was used.
+    """
+    if os.name == "nt":
+        to_recycle_bin(src)
+        return None
+    bak = unique_bak(src)
+    src.rename(bak)
+    return bak
+
+
 def save_result(src, dst, text, new_file):
     if new_file:
         with open(dst, "x", encoding="utf-8", newline="") as handle:
@@ -200,9 +226,10 @@ def save_result(src, dst, text, new_file):
                 handle.close()
                 dst.unlink()
                 raise
-        return
+        return None
 
-    recycled = False
+    retired = False
+    bak = None
     tmp = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -211,18 +238,22 @@ def save_result(src, dst, text, new_file):
         ) as handle:
             tmp = Path(handle.name)
             handle.write(text)
-        to_recycle_bin(src)
-        recycled = True
+        bak = retire_original(src)
+        retired = True
         os.replace(tmp, src)
     except Exception as exc:
-        if recycled:
+        if retired:
+            where = str(bak) if bak else "the Recycle Bin"
             raise OSError(
-                f"Original is in the Recycle Bin; converted file kept at {tmp}: {exc}"
+                f"Original is in {where}; converted file kept at {tmp}: {exc}"
             ) from exc
         raise
     finally:
-        if not recycled and tmp is not None:
+        if not retired and tmp is not None:
             tmp.unlink(missing_ok=True)
+    if bak is not None:
+        return f"no Recycle Bin on this platform; original kept as {bak.name}"
+    return None
 
 
 def run_batch(paths, mode=DEFAULT_MODE, new_file=NEW_FILE, log=None):
@@ -266,7 +297,9 @@ def run_batch(paths, mode=DEFAULT_MODE, new_file=NEW_FILE, log=None):
             if not new_file and text == raw:
                 result.status = "unchanged"
             else:
-                save_result(src, dst, text, new_file)
+                note = save_result(src, dst, text, new_file)
+                if note:
+                    result.warnings.append(note)
                 result.status = "saved"
             result.destination = dst
         except Exception as exc:
