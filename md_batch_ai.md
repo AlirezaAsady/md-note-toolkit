@@ -1,0 +1,12 @@
+# Markdown batch tools — AI quick reference
+- `md_batch.py`: stdlib Windows CLI/API; modes `reverse`, `color`, `rtl`, `forward` (color then RTL); never reverse+forward together.
+- CLI: `python md_batch.py <mode> "a.md" "b.md" [--new]`; exit 0=success, 1=file failures, 2=invalid arguments.
+- API: `run_batch(paths, mode="forward", new_file=False, log=None)` returns ordered `FileResult` records: `source`, `destination`, `status` (saved/unchanged/error), `warnings`, `error`.
+- Defaults: `DEFAULT_MODE="forward"`, `NEW_FILE=False`; operates on each supplied file itself, NOT a sibling `.raw.md` as the old forward command did.
+- Replacement: preserve LF/CRLF, recycle original once, keep same name; unchanged files are not recycled; failed final rename retains the converted temp path in the error.
+- `--new` is only valid with reverse/color/rtl: `.raw.md`/`.out.md`/`.rtl.md`; existing outputs and outputs overlapping inputs are refused; errors do not stop other files.
+- `md_batch_gui.py`: thin Tkinter frontend using the same API; top settings `DEFAULT_MODE`, `NEW_FILE`, `WINDOW_SIZE`; new-file checkbox disabled for Color+RTL.
+- `md_color_gui.py` settings: `CSS_HREF`, `FOOT_ENABLED`, `FOOT_INLINE_CLASS`, `FOOT_DEF_CLASS`, `FOOT_OPEN`, `OUT_SUFFIX`; conversion API `process(lines_with_endings)`.
+- `md_reverse_gui.py` settings: `RULES`, `FOOT_CLASSES`, `REVERSE_COLOR`, `REMOVE_RTL`, `HEADINGS_ONLY`, `HEADING_LEVELS`, `REMOVE_LINK`; conversion API `process(...)`.
+- `md_rtl_advance_gui.py` settings: `SMART_RTL`, `HANDLE_HTML`, `AUTOCLOSE_HTML`, `HEAD_PATTERN`, `FOLD_OPEN`, `FOLD_CLOSE`, `HEADING_LEVELS`, `OUT_SUFFIX`; `process_file(path)` returns `(text_or_None, warnings)` without saving.
+- Batch reads converter defaults, not open GUI checkbox values; importing modules opens no window. Tests: `python test_md_batch.py` (scratch files; recycling mocked in the suite).

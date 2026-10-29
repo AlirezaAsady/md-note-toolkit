@@ -1,0 +1,71 @@
+/* رنگ متن */
+.r {
+  color: #ff0000;
+}
+.b {
+  color: #0000ff;
+}
+.p {
+  color: #970bff;
+}
+.m {
+  color: #ff00ff;
+}
+.g {
+  color: #009300;
+}
+.gr {
+  color: #808080;
+}
+.w {
+  color: #ffffff;
+}
+.o {
+  color: #ff6820;
+}
+
+/* هایلایت */
+.hy {
+  background-color: #ffff00;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.hg {
+  background-color: #1aff00;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.hb {
+  background-color: #31f1fb;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.hp {
+  background-color: #ff00ff;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.hgr {
+  background-color: #bdbdbd;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.ho {
+  background-color: #ff6820;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/*سایز */
+.s20 {
+  font-size: 20px;
+}
+.s22 {
+  font-size: 22px;
+}
+.s26 {
+  font-size: 26px;
+}
+.s30 {
+  font-size: 30px;
+}
