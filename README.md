@@ -210,6 +210,9 @@ default already resolves `md.css` next to the script, so a fresh clone works
 with no editing at all - change it only if you move the stylesheet, or if you
 want your own colors everywhere at once.
 
+Rather than open the file? On Windows, `md_menu.cmd` option **6** asks for the
+path, checks it, and rewrites that one line for you.
+
 ### 1. Hand the rules to an AI
 
 Send these two files to any AI and ask it to write your note with them:
@@ -253,17 +256,31 @@ folder as the `.py` files and double-click it.
    3   RTL          wrap right-to-left blocks
    4   Color + RTL  opens both of the above
    5   Reverse      HTML -> markers again
+   6   Stylesheet   set the CSS path in md_color_gui.py
+   7   Shortcut     put this menu on the Windows desktop
    0   Exit
  ===========================================
 ```
 
-It is a `.cmd` file, so it is worth saying plainly what it does: it prints that
-menu, reads one number, and runs `start pythonw` on the matching Python file
-next to it. That is the whole file. It never creates, edits, copies, moves or
-deletes anything, never touches the network or the registry, and cannot launch
-any program outside its own folder. Every line is commented. If a window does
-not open, Python is not on your `PATH` - change `pythonw` to `python` on the
-five lines at the bottom and the error will be shown instead of hidden.
+It is a `.cmd` file, so it is worth saying plainly what it does. Options 1-5
+print that menu, read one number, and run `start pythonw` on the matching Python
+file next to them - the whole file is short enough to read in one screen.
+Options 6 and 7 hand over to [`md_menu_tools.py`](md_menu_tools.py), because
+checking a path and splicing it into Python source is not a job for batch:
+
+- **6 Stylesheet** asks for the path, refuses anything that is not an absolute
+  path to an existing `.css` file (or a `http(s)://` / `file://` URL), and then
+  rewrites **one line** of `md_color_gui.py` - the `CSS_HREF =` assignment. It
+  counts the assignments first and gives up unless there is exactly one, keeps
+  the file's own line endings, and leaves the previous copy in
+  `md_color_gui.py.bak`. That is step 0 without opening an editor.
+- **7 Shortcut** asks PowerShell for a desktop shortcut to this menu. It creates
+  one `.lnk` and nothing else; delete it whenever you want.
+
+Neither option reaches a file outside this folder, and neither touches the
+network. If a window does not open, Python is not on your `PATH` - change
+`pythonw` to `python` on the five launch lines and the error will be shown
+instead of hidden.
 
 ---
 
@@ -537,6 +554,7 @@ scripts do not care what your rules say - they only apply the marker syntax.
 ```
 md_batch.py            headless CLI and batch engine (main entry point)
 md_menu.cmd            Windows number menu that opens any window
+md_menu_tools.py       menu options 6 and 7: set CSS_HREF, desktop shortcut
 md_batch_gui.py        Tkinter window over the same engine
 md_color_gui.py        markers -> HTML spans, details, gloss colors
 md_rtl_advance_gui.py  RTL wrapping, smart mode, unclosed-tag detection

@@ -386,6 +386,13 @@ CSS_HREF = "/home/you/md-note-toolkit/md.css"    # Linux, macOS
 
 <div dir="rtl">
 
+حوصله‌ی باز کردن فایل را ندارید؟ در ویندوز گزینه‌ی **۶** در `md_menu.cmd` مسیر
+را می‌پرسد، بررسیش می‌کند و همان یک خط را برایتان بازنویسی می‌کند.
+
+</div>
+
+<div dir="rtl">
+
 ### 1. قانون را به AI بدهید
 
 </div>
@@ -469,19 +476,42 @@ python md_batch_gui.py
    3   RTL          wrap right-to-left blocks
    4   Color + RTL  opens both of the above
    5   Reverse      HTML -> markers again
+   6   Stylesheet   set the CSS path in md_color_gui.py
+   7   Shortcut     put this menu on the Windows desktop
    0   Exit
  ===========================================
 ```
 
 <div dir="rtl">
 
-چون یک فایل `.cmd` است، صریح می‌گویم چه کار می‌کند: همان منو را چاپ می‌کند،
-یک شماره می‌خواند، و `start pythonw` را روی همان فایل پایتون کنار خودش اجرا
-می‌کند. کل فایل همین است. هیچ چیزی نمی‌سازد، ویرایش نمی‌کند، کپی یا جابه‌جا
-یا پاک نمی‌کند، به شبکه و رجیستری دست نمی‌زند، و نمی‌تواند برنامه‌ای بیرون
-از پوشه‌ی خودش را اجرا کند. همه‌ی خط‌هایش کامنت دارند. اگر پنجره‌ای باز
-نشد یعنی پایتون در `PATH` شما نیست - در آن پنج خط پایین `pythonw` را به
-`python` عوض کنید تا خطا به‌جای پنهان شدن نمایش داده شود.
+چون یک فایل `.cmd` است، صریح می‌گویم چه کار می‌کند. گزینه‌های ۱ تا ۵ همان منو
+را چاپ می‌کنند، یک شماره می‌خوانند، و `start pythonw` را روی همان فایل پایتون
+کنار خودش اجرا می‌کنند - کل فایل آن‌قدر کوتاه است که در یک صفحه خوانده می‌شود.
+گزینه‌های ۶ و ۷ کار را به [`md_menu_tools.py`](md_menu_tools.py) می‌سپارند،
+چون بررسی کردن یک مسیر و نشاندن آن وسط سورس پایتون کار batch نیست:
+
+</div>
+
+<div dir="rtl">
+
+- **۶ Stylesheet** مسیر را می‌پرسد، هر چیزی که مسیر مطلق به یک فایل `.css`
+  موجود نباشد (یا یک URL از نوع `http(s)://` یا `file://`) رد می‌کند، و بعد
+  **فقط یک خط** از `md_color_gui.py` را بازنویسی می‌کند - همان انتساب
+  `CSS_HREF =`. اول تعداد این انتساب‌ها را می‌شمارد و اگر دقیقاً یکی نبود
+  دست‌نگه‌داشته کنار می‌کشد، پایان خط‌های خود فایل را حفظ می‌کند، و نسخه‌ی
+  قبلی را در `md_color_gui.py.bak` نگه می‌دارد. یعنی همان قدم ۰ بدون باز کردن
+  ویرایشگر.
+- **۷ Shortcut** از PowerShell یک شورت‌کات روی دسکتاپ برای همین منو می‌خواهد.
+  فقط یک `.lnk` می‌سازد و هیچ چیز دیگر؛ هر وقت خواستید پاکش کنید.
+
+</div>
+
+<div dir="rtl">
+
+هیچ‌کدام از این دو گزینه به فایلی بیرون از همین پوشه دست نمی‌زند و هیچ‌کدام به
+شبکه وصل نمی‌شوند. اگر پنجره‌ای باز نشد یعنی پایتون در `PATH` شما نیست - در آن
+پنج خط اجرا، `pythonw` را به `python` عوض کنید تا خطا به‌جای پنهان شدن نمایش
+داده شود.
 
 </div>
 
@@ -989,6 +1019,7 @@ raw notes (markers)  --color-->  HTML spans + details  --rtl-->  styled RTL note
 ```
 md_batch.py            headless CLI and batch engine (main entry point)
 md_menu.cmd            Windows number menu that opens any window
+md_menu_tools.py       menu options 6 and 7: set CSS_HREF, desktop shortcut
 md_batch_gui.py        Tkinter window over the same engine
 md_color_gui.py        markers -> HTML spans, details, gloss colors
 md_rtl_advance_gui.py  RTL wrapping, smart mode, unclosed-tag detection
