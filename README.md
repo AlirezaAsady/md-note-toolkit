@@ -216,9 +216,32 @@ machine and useless to anyone else reading the repo.
 ### How it looks
 
 GitHub strips the linked stylesheet, so the styled note can only be seen in VS
-Code or a browser. These screenshots are that local render:
+Code or a browser. These are local renders of two sections of
+`examples/after.md`, next to the raw source they came from.
 
-<!-- TODO: screenshots of examples/after.md rendered in VS Code / a browser -->
+**Section 2 - raw markers, then the generated note**
+
+| before | after |
+|---|---|
+| <img src="examples/img/section2-before.webp" width="420" alt="Section 2 as raw markers"> | <img src="examples/img/section2-after.webp" width="420" alt="Section 2 rendered with colors, gloss tokens and RTL"> |
+
+**The same section after changing two CSS classes by hand**
+
+<img src="examples/img/section2-after-reclassed.webp" width="620" alt="Section 2 rendered after two class names were edited">
+
+Exactly two words were edited in the generated file: `class="hy"` became
+`class="hy s26"`, and `class="r"` became `class="m"`. Nothing else moved. The
+classes live in [`md.css`](md.css) - `.r` red, `.m` magenta, `.hy` yellow
+highlight, `.s22` / `.s26` font sizes - so restyling is a one-word change per
+span, or a one-line change in the stylesheet if you would rather not touch the
+note at all. This is why the tool emits class names and never inline
+`style=""`: the rendered file stays editable after it is generated.
+
+**Section 3 - raw markers, then the generated note**
+
+| before | after |
+|---|---|
+| <img src="examples/img/section3-before.webp" width="420" alt="Section 3 as raw markers"> | <img src="examples/img/section3-after.webp" width="420" alt="Section 3 rendered with a red warning span and a collapsible block"> |
 
 ---
 
@@ -309,6 +332,7 @@ docs/MY_STYLE.md       one complete example style preset
 examples/before.md     sample note as raw markers
 examples/after.md      the same note after color + RTL
 examples/measure.py    reproduces the token numbers and checks the round trip
+examples/img/            screenshots of the rendered example
 md_batch_ai.md         compact CLI/API reference written for AI agents
 test_md_batch.py       unittest suite, no external fixtures
 ```
@@ -356,7 +380,7 @@ Next steps, in order:
 
 - [x] `examples/` - a before/after sample plus the measurement script behind the
       token numbers above
-- [ ] rendered screenshots of `examples/after.md` under the Example section
+- [x] rendered screenshots of `examples/after.md` under the Example section
 - [x] `RTL_RE` - right-to-left detection is now a documented top-of-file
       config, widened from Arabic-only to Hebrew plus every Arabic block
 - [x] non-Windows fallback for replacing originals - the old copy becomes a
