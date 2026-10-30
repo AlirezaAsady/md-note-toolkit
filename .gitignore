@@ -34,13 +34,15 @@ htmlcov/
 #   *.rtl.md  <- md_rtl_advance_gui.OUT_SUFFIX
 #   *.out.md  <- md_color_gui.OUT_SUFFIX
 #   *.raw.md  <- md_batch.py reverse output
-#   *.bak     <- replace-original fallback
+#   *.bak     <- replace-original fallback, and md_menu_tools.py set-css
+#   *.tmp     <- md_menu_tools.py set-css, renamed over the target
 # Suffix patterns only, so docs and examples stay tracked.
 # ---------------------------------------------------------------
 *.rtl.md
 *.out.md
 *.raw.md
 *.bak
+*.tmp
 
 # Local scratch space for experiments and bug reproduction
 /scratch/

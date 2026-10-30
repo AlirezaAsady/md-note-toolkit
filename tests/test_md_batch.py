@@ -13,12 +13,12 @@ sys.path.insert(0, str(ROOT))
 
 import md_batch as batch  # noqa: E402
 import md_batch_gui as gui  # noqa: E402
+import md_menu_tools as tools  # noqa: E402
 
 RAW = 'سلام ^^قرمز^^ و !!رنگ!! ¹* متن\n\n¹* توضیح\n\nEnglish\n\n'
 CODE = '```python\nx = "^^keep^^ ¹ code"\n<details>\n</details>\nnext\n```\n'
 
 
-class FileFixture(unittest.TestCase):
 class NtOs:
     """Stand-in for the os module inside md_batch.
 
@@ -33,6 +33,7 @@ class NtOs:
         return getattr(os, item)
 
 
+class FileFixture(unittest.TestCase):
     def setUp(self):
         # Same volume as the repo: os.replace() cannot cross drives.
         self.scope = tempfile.TemporaryDirectory(dir=ROOT)
@@ -40,12 +41,12 @@ class NtOs:
         self.recycled = []
         self.patcher = patch.object(batch, "to_recycle_bin", self.recycle)
         self.patcher.start()
-
         self.os_patcher = patch.object(batch, "os", NtOs())
         self.os_patcher.start()
+
     def tearDown(self):
-        self.patcher.stop()
         self.os_patcher.stop()
+        self.patcher.stop()
         self.scope.cleanup()
 
     def recycle(self, src):
@@ -64,7 +65,6 @@ class NtOs:
 
 
 class BatchTests(FileFixture):
-    def test_color_new_keeps_original(self):
     def test_retire_original_on_this_platform(self):
         src = self.make("gone.md", "data")
         original = src.read_bytes()
@@ -79,6 +79,7 @@ class BatchTests(FileFixture):
             self.assertEqual(bak.read_bytes(), original)
             self.assertFalse(self.recycled)
 
+    def test_color_new_keeps_original(self):
         src = self.make(text=RAW + CODE)
         original = src.read_bytes()
         result = self.run_one(src, "color", True)
@@ -359,6 +360,95 @@ class GuiTests(FileFixture):
         self.assertTrue((self.folder / "a.out.md").is_file())
         self.assertFalse(self.recycled)
         self.assertFalse(self.app.new_check.instate(["disabled"]))
+
+
+class MenuToolsTests(FileFixture):
+    """md_menu_tools.set_css edits a real source file, so it gets real tests."""
+
+    def setUp(self):
+        super().setUp()
+        self.css = self.folder / "md.css"
+        self.css.write_text("body{}", encoding="utf-8")
+        self.target = self.folder / "md_color_gui.py"
+        self.target.write_bytes((ROOT / "md_color_gui.py").read_bytes())
+        self.original = self.target.read_bytes()
+        self.patcher2 = patch.object(tools, "TARGET", self.target)
+        self.patcher2.start()
+
+    def tearDown(self):
+        self.patcher2.stop()
+        super().tearDown()
+
+    def ask(self, answer):
+        with patch("builtins.input", return_value=answer):
+            return tools.set_css()
+
+    def test_bad_values_are_refused_and_write_nothing(self):
+        relative = "md.css"
+        missing = str(self.folder / "missing.css")
+        wrong_kind = str(self.folder / "notes.txt")
+        for answer in ("", "   ", relative, missing, wrong_kind,
+                       'C:\\a"b.css', str(self.css) + "\\", "a\nb"):
+            with self.subTest(answer=answer):
+                self.assertEqual(self.ask(answer), 1)
+                self.assertEqual(self.target.read_bytes(), self.original)
+                self.assertFalse(list(self.folder.glob("*.bak")))
+                self.assertFalse(list(self.folder.glob("*.tmp")))
+
+    def test_only_the_css_href_line_changes(self):
+        self.assertEqual(self.ask(str(self.css)), 0)
+        # splitlines-style: the working copy may be LF or CRLF, and which one
+        # is checked by test_line_endings_and_backup instead.
+        before = self.original.decode("utf-8").replace("\r\n", "\n").split("\n")
+        after = self.target.read_bytes().decode("utf-8").replace("\r\n", "\n").split("\n")
+        self.assertEqual(len(before), len(after))
+        changed = [(i, b, a) for i, (b, a) in enumerate(zip(before, after)) if b != a]
+        self.assertEqual(len(changed), 1)
+        index, old, new = changed[0]
+        self.assertTrue(old.startswith("CSS_HREF = "), old)
+        self.assertEqual(new, f'CSS_HREF = r"{self.css}"')
+        self.assertEqual(after[index + 1], before[index + 1])
+
+    def test_line_endings_and_backup(self):
+        crlf = self.original.decode("utf-8").replace("\r\n", "\n").replace("\n", "\r\n")
+        self.target.write_bytes(crlf.encode("utf-8"))
+        self.assertEqual(self.ask(str(self.css)), 0)
+        written = self.target.read_bytes()
+        self.assertEqual(written.count(b"\r\n"), crlf.encode("utf-8").count(b"\r\n"))
+        self.assertNotIn(b"\r\r", written)
+        backup = self.target.with_suffix(".py.bak")
+        self.assertEqual(backup.read_bytes(), crlf.encode("utf-8"))
+        self.assertFalse(list(self.folder.glob("*.tmp")))
+
+    def test_two_assignments_are_refused(self):
+        text = self.original.decode("utf-8")
+        doubled = text.replace("CSS_HREF = ", 'CSS_HREF = "a"\nCSS_HREF = ', 1)
+        self.target.write_bytes(doubled.encode("utf-8"))
+        self.assertEqual(self.ask(str(self.css)), 1)
+        self.assertEqual(self.target.read_bytes(), doubled.encode("utf-8"))
+        self.assertFalse(list(self.folder.glob("*.tmp")))
+
+    def test_same_value_again_is_a_no_op(self):
+        self.assertEqual(self.ask(str(self.css)), 0)
+        once = self.target.read_bytes()
+        self.assertEqual(self.ask(str(self.css)), 0)
+        self.assertEqual(self.target.read_bytes(), once)
+
+    def test_url_is_accepted_without_touching_the_disk(self):
+        self.assertEqual(self.ask("https://example.com/md.css"), 0)
+        self.assertIn(b'CSS_HREF = r"https://example.com/md.css"', self.target.read_bytes())
+
+    def test_pasted_path_with_quotes_is_accepted(self):
+        # Windows "Copy as path" wraps the path in double quotes.
+        self.assertEqual(self.ask(f'"{self.css}"'), 0)
+        self.assertIn(f'CSS_HREF = r"{self.css}"'.encode("utf-8"),
+                      self.target.read_bytes())
+
+    def test_embedded_quote_is_still_refused(self):
+        for answer in (f'{self.css}"', f'a"b"{self.css}', 'C:\\a"b.css', '"'):
+            with self.subTest(answer=answer):
+                self.assertEqual(self.ask(answer), 1)
+                self.assertEqual(self.target.read_bytes(), self.original)
 
 
 if __name__ == "__main__":
