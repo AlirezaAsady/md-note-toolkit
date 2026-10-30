@@ -10,6 +10,8 @@
 
 </div>
 
+[![CI](https://github.com/AlirezaAsady/md-note-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/AlirezaAsady/md-note-toolkit/actions/workflows/ci.yml)
+
 <div dir="rtl">
 
 پیش‌پرداز یادداشت مارکدون که **فایل خام را تمیز نگه می‌دارد** و در عوض یک
@@ -559,8 +561,18 @@ for r in results:
 </div>
 
 ```bash
-python test_md_batch.py
+python -m pytest                  # or: python tests/test_md_batch.py
 ```
+
+<div dir="rtl">
+
+۲۸ تست، همه `unittest` از کتابخانه‌ی استاندارد که با pytest جمع می‌شوند. هیچ
+فایلی برای دانلود نیست و هیچ دسترسی شبکه‌ای وجود ندارد؛ خودِ سویت فایل‌های
+موقتش را می‌سازد و فراخوانی سطل بازیافت را mock می‌کند. هر push به `main`
+همین سویت را روی ویندوز (پایتون ۳.۱۰ و ۳.۱۴) و اوبونتو اجرا می‌کند -
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+
+</div>
 
 ---
 
@@ -989,7 +1001,9 @@ examples/after.md      the same note after color + RTL
 examples/measure.py    reproduces the token numbers and checks the round trip
 examples/img/            screenshots of the rendered example
 md_batch_ai.md         compact CLI/API reference written for AI agents
-test_md_batch.py       unittest suite, no external fixtures
+tests/test_md_batch.py unittest suite, no external fixtures
+pytest.ini             points pytest at tests/
+.github/workflows/     CI: Windows and Ubuntu run the suite on every push
 ```
 
 ---
@@ -1062,7 +1076,7 @@ test_md_batch.py       unittest suite, no external fixtures
 - [x] `docs/SPEC.md` - گرامر مارکرها، جدا از هر سبک شخصی
 - [x] ارائه‌ی `rules.md` به‌عنوان یک preset نمونه زیر `docs/` - حالا
       `docs/MY_STYLE.md`
-- [ ] چیدمان `pytest` و CI روی ویندوز به‌علاوه‌ی اوبونتو
+- [x] چیدمان `pytest` و CI روی ویندوز به‌علاوه‌ی اوبونتو
 
 </div>
 

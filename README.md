@@ -2,6 +2,8 @@
 
 **English** | [فارسی](README.fa.md)
 
+[![CI](https://github.com/AlirezaAsady/md-note-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/AlirezaAsady/md-note-toolkit/actions/workflows/ci.yml)
+
 Markdown note preprocessor that keeps the **raw file clean** while producing a
 styled, right-to-left, bilingual-friendly rendered note.
 
@@ -307,8 +309,13 @@ the remaining files.
 Tests:
 
 ```bash
-python test_md_batch.py
+python -m pytest                  # or: python tests/test_md_batch.py
 ```
+
+28 tests, standard library `unittest` cases collected by pytest. No fixtures to
+download and no network access; the suite builds its own scratch files and mocks
+the Recycle Bin call. Every push to `main` runs it on Windows (Python 3.10 and
+3.14) and on Ubuntu - see [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ---
 
@@ -542,7 +549,9 @@ examples/after.md      the same note after color + RTL
 examples/measure.py    reproduces the token numbers and checks the round trip
 examples/img/            screenshots of the rendered example
 md_batch_ai.md         compact CLI/API reference written for AI agents
-test_md_batch.py       unittest suite, no external fixtures
+tests/test_md_batch.py unittest suite, no external fixtures
+pytest.ini             points pytest at tests/
+.github/workflows/     CI: Windows and Ubuntu run the suite on every push
 ```
 
 ---
@@ -596,7 +605,7 @@ Next steps, in order:
 - [x] `docs/SPEC.md` - the marker grammar, split out from any personal style
 - [x] present `rules.md` as one example preset under `docs/` - now
       `docs/MY_STYLE.md`
-- [ ] `pytest` layout and CI on Windows plus Ubuntu
+- [x] `pytest` layout and CI on Windows plus Ubuntu
 
 ---
 

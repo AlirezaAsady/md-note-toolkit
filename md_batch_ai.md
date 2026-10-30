@@ -9,5 +9,5 @@
 - `md_color_gui.py` settings: `CSS_HREF`, `FOOT_ENABLED`, `FOOT_INLINE_CLASS`, `FOOT_DEF_CLASS`, `FOOT_OPEN`, `OUT_SUFFIX`; conversion API `process(lines_with_endings)`.
 - `md_reverse_gui.py` settings: `RULES`, `FOOT_CLASSES`, `REVERSE_COLOR`, `REMOVE_RTL`, `HEADINGS_ONLY`, `HEADING_LEVELS`, `REMOVE_LINK`; conversion API `process(...)`.
 - `md_rtl_advance_gui.py` settings: `SMART_RTL`, `RTL_PATTERN`, `HANDLE_HTML`, `AUTOCLOSE_HTML`, `HEAD_PATTERN`, `FOLD_OPEN`, `FOLD_CLOSE`, `HEADING_LEVELS`, `OUT_SUFFIX`; `process_file(path)` returns `(text_or_None, warnings)` without saving. `RTL_PATTERN` = characters that count as right-to-left (Hebrew + all Arabic blocks by default); LTR scripts must stay out. Overridable per call via `rtl_pattern=`; invalid or empty falls back to the default with a warning, in smart mode only.
-- Batch reads converter defaults, not open GUI checkbox values; importing modules opens no window. Tests: `python test_md_batch.py` (scratch files; recycling mocked in the suite).
+- Batch reads converter defaults, not open GUI checkbox values; importing modules opens no window. Tests: `python -m pytest` (scratch files; recycling mocked in the suite).
 - Marker grammar, generated HTML, round-trip contract and deliberate defaults: `docs/SPEC.md`. One complete example style built on it: `docs/MY_STYLE.md`.

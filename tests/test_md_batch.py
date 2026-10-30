@@ -8,17 +8,20 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import md_batch as batch
-import md_batch_gui as gui
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 
-HERE = Path(__file__).parent
+import md_batch as batch  # noqa: E402
+import md_batch_gui as gui  # noqa: E402
+
 RAW = 'سلام ^^قرمز^^ و !!رنگ!! ¹* متن\n\n¹* توضیح\n\nEnglish\n\n'
 CODE = '```python\nx = "^^keep^^ ¹ code"\n<details>\n</details>\nnext\n```\n'
 
 
 class FileFixture(unittest.TestCase):
     def setUp(self):
-        self.scope = tempfile.TemporaryDirectory(dir=HERE)
+        # Same volume as the repo: os.replace() cannot cross drives.
+        self.scope = tempfile.TemporaryDirectory(dir=ROOT)
         self.folder = Path(self.scope.name)
         self.recycled = []
         self.patcher = patch.object(batch, "to_recycle_bin", self.recycle)
@@ -225,13 +228,13 @@ class BatchTests(FileFixture):
         first = self.make("first file.md")
         second = self.make("دوم.md")
         result = subprocess.run(
-            [sys.executable, str(HERE / "md_batch.py"), "color", str(first), str(second), "--new"],
+            [sys.executable, str(ROOT / "md_batch.py"), "color", str(first), str(second), "--new"],
             capture_output=True, encoding="utf-8",
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("saved=2", result.stdout)
         result = subprocess.run(
-            [sys.executable, str(HERE / "md_batch.py"), "reverse", str(self.folder / "missing.md")],
+            [sys.executable, str(ROOT / "md_batch.py"), "reverse", str(self.folder / "missing.md")],
             capture_output=True, encoding="utf-8",
         )
         self.assertEqual(result.returncode, 1)
@@ -241,7 +244,7 @@ class BatchTests(FileFixture):
         src = self.make()
         original = src.read_bytes()
         result = subprocess.run(
-            [sys.executable, str(HERE / "md_batch.py"), "forward", str(src), "--new"],
+            [sys.executable, str(ROOT / "md_batch.py"), "forward", str(src), "--new"],
             capture_output=True, encoding="utf-8",
         )
         self.assertEqual(result.returncode, 2)
@@ -250,7 +253,7 @@ class BatchTests(FileFixture):
     def test_import_does_not_open_window(self):
         result = subprocess.run(
             [sys.executable, "-c", "import md_batch, md_batch_gui, tkinter; assert tkinter._default_root is None"],
-            cwd=HERE, capture_output=True, text=True,
+            cwd=ROOT, capture_output=True, text=True,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
