@@ -9,10 +9,12 @@ It adds the four things Markdown has no native syntax for - per-block text
 direction, colored emphasis, collapsible sections, second-language glosses -
 and it can convert the result **back** to clean Markdown.
 
-Zero install. Python standard library only.
+No packages to install - Python standard library only.
 
-**In a hurry?** Two steps: hand [`docs/MY_STYLE.md`](docs/MY_STYLE.md) to an
-AI, then run `python md_batch_gui.py`. See [Start here](#start-here).
+**In a hurry?** Jump to [Install Python](#install-python-from-scratch) if you
+do not have it yet, then [Start here](#start-here): hand
+[`docs/MY_STYLE.md`](docs/MY_STYLE.md) to an AI and run
+`python md_batch_gui.py`. The rest of this page explains *why*.
 
 ---
 
@@ -110,10 +112,76 @@ Four mechanisms, ordered by real impact:
 ## Requirements
 
 - **Python 3.10 or newer.** The code uses `Path | None` union annotations and
-  `list[str]` generics, which need 3.10. Tested on 3.14. Nothing else required.
+  `list[str]` generics, which need 3.10. Tested on 3.14. Nothing else required -
+  no `pip install`, no packages, no config file.
 - Any operating system. When replacing an original file, Windows sends the old
   copy to the Recycle Bin; Linux and macOS rename it to `<name>.bak` (unique,
   never overwritten) and report that as a warning. Nothing is ever deleted.
+
+### Install Python from scratch
+
+Never used a terminal before? Follow these in order. Every line is typed
+exactly as shown, then Enter.
+
+**Windows**
+
+1. Press the Windows key, type `cmd`, press Enter. A black box opens - that is
+   the terminal.
+2. Install Python:
+
+```bat
+winget install Python.Python.3.12
+```
+
+If that fails (`winget` is missing on old builds), download the installer from
+<https://www.python.org/downloads/windows/>, run it, and **tick the box
+"Add python.exe to PATH"** on the first screen before clicking Install.
+
+3. Close the black box and open a new one, then check:
+
+```bat
+python --version
+```
+
+Anything 3.10 or higher is fine.
+
+**Linux**
+
+```bash
+sudo apt install python3        # Debian, Ubuntu, Mint
+sudo dnf install python3        # Fedora
+python3 --version
+```
+
+**macOS**
+
+```bash
+brew install python
+python3 --version
+```
+
+### Put the files on your computer and run them
+
+1. Get the files: download the ZIP from this repo's green **Code** button and
+   extract it, or `git clone` it. Either way you end up with one folder holding
+   the `.py` files.
+2. Tell the terminal to go into that folder. Type `cd ` (with the trailing
+   space), then drag the folder onto the terminal window - it fills in the path
+   for you - then Enter:
+
+```bat
+cd C:\Users\you\Downloads\md-note-toolkit
+```
+
+3. Run a tool. On Windows use `python`, on Linux and macOS use `python3`:
+
+```bat
+python md_batch_gui.py
+```
+
+A window opens. If instead the terminal prints that `python` is not recognized,
+step 2 of the install did not add it to your PATH - rerun the installer and
+tick that box.
 
 ---
 
