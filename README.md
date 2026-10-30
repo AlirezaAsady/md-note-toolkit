@@ -11,6 +11,9 @@ and it can convert the result **back** to clean Markdown.
 
 Zero install. Python standard library only.
 
+**In a hurry?** Two steps: hand [`docs/MY_STYLE.md`](docs/MY_STYLE.md) to an
+AI, then run `python md_batch_gui.py`. See [Start here](#start-here).
+
 ---
 
 ## The problem
@@ -114,9 +117,54 @@ Four mechanisms, ordered by real impact:
 
 ---
 
-## Quick start
+## Start here
 
-Headless CLI - the main entry point:
+Two steps. Everything below this section is reference material.
+
+### 1. Hand the rules to an AI
+
+Send these two files to any AI and ask it to write your note with them:
+
+- [`docs/MY_STYLE.md`](docs/MY_STYLE.md) - **the rule book.** Which language is
+  used for what, the section names, how much color, where glosses go. Use it as
+  is, or rewrite it for your own language.
+- [`docs/SPEC.md`](docs/SPEC.md) - the grammar behind the rules: what
+  `^^text^^`, `^!` and `¹` mean, and what HTML each one becomes.
+
+The AI hands you back a plain `.md` file with small markers in it. You do not
+write those markers by hand, and you never write HTML.
+
+### 2. Run one command
+
+```
+python md_batch_gui.py
+```
+
+A window opens. Press **Add files**, pick the note the AI gave you, leave
+**Color + RTL** selected, press **Run batch**. The file is rewritten in place
+and the old copy goes to the Recycle Bin, so nothing is lost.
+
+Want the plain marker file back later? Same window, choose **Reverse** instead.
+
+That is the entire workflow: the AI writes markers, one window turns them into
+a styled right-to-left page, **Reverse** turns it back.
+
+---
+
+## Every other way to run it
+
+Optional - only if the window above does not fit how you work.
+
+Three single-file windows, one job each:
+
+```bash
+python md_color_gui.py           # markers -> HTML spans and folds
+python md_rtl_advance_gui.py     # add the RTL wrappers
+python md_reverse_gui.py         # HTML -> markers again
+```
+
+Headless CLI, for scripts and for letting an AI drive the tool itself. Its own
+instructions are in [`md_batch_ai.md`](md_batch_ai.md):
 
 ```bash
 python md_batch.py forward "notes.md"          # apply color markers, then RTL
@@ -128,15 +176,6 @@ python md_batch.py color "notes.md" --new      # write notes.out.md, keep input
 Modes: `reverse`, `color`, `rtl`, `forward` (= color then RTL). Default is
 `forward`. Exit codes: `0` success, `1` one or more files failed, `2` invalid
 arguments.
-
-Graphical front ends - double-click or run directly:
-
-```bash
-python md_batch_gui.py           # multi-file window over the same engine
-python md_color_gui.py           # single file: markers -> HTML
-python md_rtl_advance_gui.py     # single file: RTL wrapping
-python md_reverse_gui.py         # single file: HTML -> markers
-```
 
 Programmatic use:
 

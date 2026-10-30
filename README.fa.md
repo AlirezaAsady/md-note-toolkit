@@ -31,6 +31,13 @@
 
 </div>
 
+<div dir="rtl">
+
+**عجله دارید؟** دو قدم: [`docs/MY_STYLE.md`](docs/MY_STYLE.md) را به یک AI
+بدهید، بعد `python md_batch_gui.py` را اجرا کنید. بخش «از اینجا شروع کنید».
+
+</div>
+
 ---
 
 <div dir="rtl">
@@ -212,13 +219,108 @@
 
 <div dir="rtl">
 
-## شروع سریع
+## از اینجا شروع کنید
 
 </div>
 
 <div dir="rtl">
 
-CLI بدون پنجره - ورودی اصلی:
+دو قدم. هرچه بعد از این بخش آمده مرجع است.
+
+</div>
+
+<div dir="rtl">
+
+### 1. قانون را به AI بدهید
+
+</div>
+
+<div dir="rtl">
+
+این دو فایل را برای هر AI بفرستید و بخواهید یادداشت شما را با آن‌ها بنویسد:
+
+</div>
+
+<div dir="rtl">
+
+- [`docs/MY_STYLE.md`](docs/MY_STYLE.md) - **کتاب قانون.** اینکه هر زبان کجا
+  استفاده می‌شود، نام بخش‌ها، چقدر رنگ، واژه‌نامه‌ها کجا بیایند. همین را
+  استفاده کنید، یا برای زبان خودتان بازنویسی‌اش کنید.
+- [`docs/SPEC.md`](docs/SPEC.md) - گرامرِ پشت آن قانون‌ها: اینکه `^^text^^` و
+  `^!` و `¹` چه معنایی دارند و هرکدام به چه HTML تبدیل می‌شوند.
+
+</div>
+
+<div dir="rtl">
+
+AI یک فایل `.md` ساده با چند مارکر کوچک به شما برمی‌گرداند. آن مارکرها را
+خودتان دستی نمی‌نویسید و هرگز HTML نمی‌نویسید.
+
+</div>
+
+<div dir="rtl">
+
+### 2. یک دستور اجرا کنید
+
+</div>
+
+```
+python md_batch_gui.py
+```
+
+<div dir="rtl">
+
+یک پنجره باز می‌شود. **Add files** را بزنید، یادداشتی را که AI داده انتخاب
+کنید، همان **Color + RTL** انتخاب‌شده بماند، **Run batch** را بزنید. فایل سر
+جایش بازنویسی می‌شود و نسخه‌ی قدیمی به سطل بازیافت می‌رود، پس چیزی گم
+نمی‌شود.
+
+</div>
+
+<div dir="rtl">
+
+بعداً فایل خام مارکرها را خواستید؟ همان پنجره، به‌جایش **Reverse** را انتخاب
+کنید.
+
+</div>
+
+<div dir="rtl">
+
+کل گردش کار همین است: AI مارکر می‌نویسد، یک پنجره آن را به یک صفحه‌ی
+راست‌چین استایل‌دار تبدیل می‌کند، **Reverse** برش می‌گرداند.
+
+</div>
+
+---
+
+<div dir="rtl">
+
+## هر راه دیگری برای اجرا
+
+</div>
+
+<div dir="rtl">
+
+اختیاری - فقط اگر پنجره‌ی بالا به روش کار شما نمی‌خورد.
+
+</div>
+
+<div dir="rtl">
+
+سه پنجره‌ی تک‌فایلی، هرکدام یک کار:
+
+</div>
+
+```bash
+python md_color_gui.py           # markers -> HTML spans and folds
+python md_rtl_advance_gui.py     # add the RTL wrappers
+python md_reverse_gui.py         # HTML -> markers again
+```
+
+<div dir="rtl">
+
+CLI بدون پنجره، برای اسکریپت‌ها و برای اینکه بگذارید خود AI ابزار را
+بچرخاند. دستورالعمل خودش در [`md_batch_ai.md`](md_batch_ai.md) است:
 
 </div>
 
@@ -236,19 +338,6 @@ python md_batch.py color "notes.md" --new      # write notes.out.md, keep input
 نامعتبر.
 
 </div>
-
-<div dir="rtl">
-
-رابط گرافیکی - دابل‌کلیک یا اجرای مستقیم:
-
-</div>
-
-```bash
-python md_batch_gui.py           # multi-file window over the same engine
-python md_color_gui.py           # single file: markers -> HTML
-python md_rtl_advance_gui.py     # single file: RTL wrapping
-python md_reverse_gui.py         # single file: HTML -> markers
-```
 
 <div dir="rtl">
 
