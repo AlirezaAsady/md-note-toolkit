@@ -1,9 +1,8 @@
 # ---------------------------------------------------------------
 # md-note-toolkit
 # NOTE: *.md must NEVER be blanket-ignored here.
-# README.md, README.fa.md, ROADMAP.md, docs/*.md and examples/*.md
-# are product documentation and must stay in version control.
-# The old repo ignored *.md; that rule must not be carried over.
+# README.md, README.fa.md, docs/*.md and examples/*.md are product
+# documentation and must stay in version control.
 # ---------------------------------------------------------------
 
 # Python bytecode and caches
@@ -72,9 +71,7 @@ $RECYCLE.BIN/
 
 # ---------------------------------------------------------------
 # Deliberately NOT ignored:
-#   assets/md.css   - shipped with the tool, part of the product
-#   tests/fixtures/ - test input must be in the repo for CI
-#   *.cmd / *.bat   - no launcher is shipped, the entry point is
-#                     `python md_batch.py`. If a personal launcher
-#                     is ever added, ignore it by file name.
+#   md.css    - shipped with the tool, part of the product
+#   tests/    - the suite must be in the repo for CI
+#   *.cmd     - md_menu.cmd is a shipped launcher
 # ---------------------------------------------------------------
