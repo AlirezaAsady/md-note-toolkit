@@ -1,5 +1,7 @@
 # md-note-toolkit
 
+**English** | [فارسی](README.fa.md)
+
 Markdown note preprocessor that keeps the **raw file clean** while producing a
 styled, right-to-left, bilingual-friendly rendered note.
 
@@ -30,7 +32,7 @@ This toolkit keeps the source as plain Markdown plus a few tiny markers, and
 generates the HTML at processing time.
 
 > **The spec is the product; the scripts are the compiler.** Note quality comes
-> from the style rules in [`rules.md`](rules.md), not from the code. The code
+> from the style rules in [`docs/MY_STYLE.md`](docs/MY_STYLE.md), not from the code. The code
 > only makes applying those rules cheap. Because the rules are a plain text
 > file, you can hand them to any AI and rewrite them for your own language.
 
@@ -62,12 +64,22 @@ The point is not prettier notes. It is that an AI can produce high-quality
 notes for a fraction of the cost, because it writes - and later re-reads -
 clean Markdown instead of HTML.
 
-**Measured** on a representative sample note (one heading, prose with both
-emphasis markers, a gloss, a table and a fold block): 324 characters of raw
-marker source produced 589 characters of rendered output. The source the AI
-writes and re-reads is therefore **45 percent smaller** than the artifact. The
-sample will be committed under `examples/` together with the measurement
-script, so the number can be reproduced.
+**Measured** on [`examples/before.md`](examples/before.md), a complete sample
+note with a TOC, prose carrying both emphasis markers, a table, seven gloss
+tokens and three fold blocks:
+
+| | characters | lines |
+|---|---|---|
+| raw markers - what the AI writes and re-reads | 3086 | 87 |
+| rendered output - what the viewer shows | 4229 | 170 |
+
+The source is **1143 characters (27 percent) smaller** than the artifact,
+about 285 tokens. That is paid once per generation and then again on every
+re-read of the note.
+
+Reproduce it with [`examples/measure.py`](examples/measure.py), which also
+checks that the committed artifact really is tool output and that `reverse`
+gives the source back.
 
 Four mechanisms, ordered by real impact:
 
@@ -179,6 +191,37 @@ contract live in [`docs/SPEC.md`](docs/SPEC.md).
 
 ---
 
+## Example
+
+`examples/` holds one complete note in both forms, so you can see exactly what
+the pipeline does before you run it on your own files.
+
+| File | What it is |
+|---|---|
+| [`before.md`](examples/before.md) | raw markers - what you or an AI writes |
+| [`after.md`](examples/after.md) | rendered output - the artifact a viewer shows |
+| [`measure.py`](examples/measure.py) | reproduces the character counts above and checks the round trip |
+
+`after.md` is generated, never edited by hand. Regenerate it with:
+
+```
+cp examples/before.md examples/after.md
+python md_batch.py forward examples/after.md
+```
+
+Then set its stylesheet `href` to `../md.css`. The tool writes the absolute
+path of the `md.css` sitting next to `md_color_gui.py`, which is right on your
+machine and useless to anyone else reading the repo.
+
+### How it looks
+
+GitHub strips the linked stylesheet, so the styled note can only be seen in VS
+Code or a browser. These screenshots are that local render:
+
+<!-- TODO: screenshots of examples/after.md rendered in VS Code / a browser -->
+
+---
+
 ## Configuration
 
 Every knob is a constant at the top of its module - no config file to find, no
@@ -237,7 +280,7 @@ visual style in VS Code or a browser.
 
 ## Personalizing the style spec
 
-[`rules.md`](rules.md) is one worked example of a complete note style:
+[`docs/MY_STYLE.md`](docs/MY_STYLE.md) is one worked example of a complete note style:
 language policy, section vocabulary, emphasis caps, table rules, gloss
 placement, exercises. It is **not** a requirement of the tool.
 
@@ -262,7 +305,10 @@ md_rtl_advance_gui.py  RTL wrapping, smart mode, unclosed-tag detection
 md_reverse_gui.py      HTML -> markers, removes RTL wrappers and link line
 md.css                 default stylesheet
 docs/SPEC.md           marker grammar, generated HTML, round-trip contract
-rules.md               example note style specification
+docs/MY_STYLE.md       one complete example style preset
+examples/before.md     sample note as raw markers
+examples/after.md      the same note after color + RTL
+examples/measure.py    reproduces the token numbers and checks the round trip
 md_batch_ai.md         compact CLI/API reference written for AI agents
 test_md_batch.py       unittest suite, no external fixtures
 ```
@@ -293,6 +339,14 @@ test_md_batch.py       unittest suite, no external fixtures
   it in `md_color_gui.py` and `md_reverse_gui.py` together.
 - The tool is deliberately marker-based, not a general Markdown parser. It does
   not understand nested lists inside fold blocks or setext headings.
+- `reverse` can lose the blank line that followed a fold close, so `!^` ends up
+  glued to the next block in the raw file. The markers still work: the RTL pass
+  normalizes block spacing to exactly one blank line, which leaves `reverse` no
+  spare blank to hand back. `examples/measure.py` reports this as a warning
+  rather than hiding it.
+- The unclosed-tag scan skips code fences but not inline code. A literal `<div>`
+  written inside backticks in prose counts as a real open tag, so the run warns
+  and emits an empty, greppable tag pair. Write it without the angle bracket.
 
 ---
 
@@ -300,14 +354,16 @@ test_md_batch.py       unittest suite, no external fixtures
 
 Next steps, in order:
 
-- [ ] `examples/` - a before/after sample plus the measurement script behind the
+- [x] `examples/` - a before/after sample plus the measurement script behind the
       token numbers above
+- [ ] rendered screenshots of `examples/after.md` under the Example section
 - [x] `RTL_RE` - right-to-left detection is now a documented top-of-file
       config, widened from Arabic-only to Hebrew plus every Arabic block
 - [x] non-Windows fallback for replacing originals - the old copy becomes a
       unique `<name>.bak` and the run reports it as a warning
 - [x] `docs/SPEC.md` - the marker grammar, split out from any personal style
-- [ ] present `rules.md` as one example preset under `docs/`
+- [x] present `rules.md` as one example preset under `docs/` - now
+      `docs/MY_STYLE.md`
 - [ ] `pytest` layout and CI on Windows plus Ubuntu
 
 ---

@@ -1,5 +1,11 @@
 # Rules for study notes (Markdown) and code comments
 
+> One person's preset, not part of the tool. [`SPEC.md`](SPEC.md) defines the
+> marker grammar every note must follow; everything below is a set of choices
+> layered on top of it - caps, section vocabulary, when to use Persian. Copy
+> the file, change what you disagree with, and hand it to an AI along with
+> `SPEC.md`. The scripts never read it.
+
 Learning comes first. Save tokens where possible (no repeated content), but never cut needed content.
 
 ## Soft caps

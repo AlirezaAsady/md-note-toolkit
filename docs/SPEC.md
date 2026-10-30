@@ -6,7 +6,7 @@ on. It is deliberately language-agnostic: nothing here assumes Persian, and
 every rule that depends on your language is listed in section 7.
 
 Hand this file to an AI along with your own style rules and it can write
-conforming notes. [`rules.md`](../rules.md) is one complete worked example of
+conforming notes. [`docs/MY_STYLE.md`](MY_STYLE.md) is one complete worked example of
 such a style - a preset, not a requirement.
 
 ---
@@ -224,7 +224,7 @@ system:
 | different colors | `md.css`, plus `RULES` in `md_reverse_gui.py` so the round trip still closes |
 | different head line | `HEAD_PATTERN` |
 | your own summary text | `DEFAULT_SUMMARY` in both files, kept equal |
-| section vocabulary, caps, table rules | your style file - see [`rules.md`](../rules.md) for the shape of one |
+| section vocabulary, caps, table rules | your style file - see [`docs/MY_STYLE.md`](MY_STYLE.md) for the shape of one |
 
 ---
 
@@ -232,4 +232,4 @@ system:
 
 - [`README.md`](../README.md) - install, quick start, measured token savings
 - [`md_batch_ai.md`](../md_batch_ai.md) - compact CLI and API reference for AI agents
-- [`rules.md`](../rules.md) - one complete example style built on this spec
+- [`docs/MY_STYLE.md`](MY_STYLE.md) - one complete example style built on this spec
