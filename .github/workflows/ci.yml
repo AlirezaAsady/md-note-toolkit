@@ -14,9 +14,9 @@ jobs:
       matrix:
         python-version: ["3.10", "3.14"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -31,7 +31,7 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The GUI tests build a real Tk window, so the runner needs the Tk
       # runtime and a virtual display. The distro Python is used on purpose:
@@ -42,6 +42,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y python3-tk python3-pytest xvfb
           python3 --version
+          python3 -c "import tkinter; print('tkinter', tkinter.TkVersion)"
 
       - name: Run tests
         run: xvfb-run -a python3 -m pytest -v
