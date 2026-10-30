@@ -19,6 +19,20 @@ CODE = '```python\nx = "^^keep^^ ¹ code"\n<details>\n</details>\nnext\n```\n'
 
 
 class FileFixture(unittest.TestCase):
+class NtOs:
+    """Stand-in for the os module inside md_batch.
+
+    retire_original picks the Recycle Bin branch on `os.name == "nt"` and the
+    .bak branch everywhere else, so without this the recycled assertions would
+    only ever be exercised on Windows. Everything except .name is the real os.
+    """
+
+    name = "nt"
+
+    def __getattr__(self, item):
+        return getattr(os, item)
+
+
     def setUp(self):
         # Same volume as the repo: os.replace() cannot cross drives.
         self.scope = tempfile.TemporaryDirectory(dir=ROOT)
@@ -27,8 +41,11 @@ class FileFixture(unittest.TestCase):
         self.patcher = patch.object(batch, "to_recycle_bin", self.recycle)
         self.patcher.start()
 
+        self.os_patcher = patch.object(batch, "os", NtOs())
+        self.os_patcher.start()
     def tearDown(self):
         self.patcher.stop()
+        self.os_patcher.stop()
         self.scope.cleanup()
 
     def recycle(self, src):
@@ -48,6 +65,20 @@ class FileFixture(unittest.TestCase):
 
 class BatchTests(FileFixture):
     def test_color_new_keeps_original(self):
+    def test_retire_original_on_this_platform(self):
+        src = self.make("gone.md", "data")
+        original = src.read_bytes()
+        with patch.object(batch, "os", os):  # the real branch, not NtOs
+            bak = batch.retire_original(src)
+        self.assertFalse(src.exists())
+        if os.name == "nt":
+            self.assertIsNone(bak)
+            self.assertEqual(self.recycled, [(src, original)])
+        else:
+            self.assertEqual(bak.name, "gone.md.bak")
+            self.assertEqual(bak.read_bytes(), original)
+            self.assertFalse(self.recycled)
+
         src = self.make(text=RAW + CODE)
         original = src.read_bytes()
         result = self.run_one(src, "color", True)
