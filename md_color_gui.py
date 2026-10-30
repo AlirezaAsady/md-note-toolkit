@@ -6,7 +6,6 @@ import os
 import re
 import time
 import tkinter as tk
-from ctypes import wintypes
 from html import escape
 from pathlib import Path
 from tkinter import filedialog, ttk
@@ -161,6 +160,13 @@ def default_out(src):
 
 def to_recycle_bin(path):
     # Move a file to the Windows Recycle Bin (recoverable) via the shell API
+    if os.name != "nt":
+        raise OSError("Recycle Bin is only supported on Windows")
+    # Imported here, not at the top of the file: wintypes declares VARIANT_BOOL
+    # with _type_ "v", which only the Windows ctypes backend supports, so a
+    # module-level import makes this file unimportable on Linux and macOS.
+    from ctypes import wintypes
+
     class SHFILEOPSTRUCTW(ctypes.Structure):
         _pack_ = 1 if ctypes.sizeof(ctypes.c_void_p) == 4 else 8
         _fields_ = [
@@ -174,8 +180,6 @@ def to_recycle_bin(path):
             ("lpszProgressTitle", wintypes.LPCWSTR),
         ]
 
-    if os.name != "nt":
-        raise OSError("Recycle Bin is only supported on Windows")
     op = SHFILEOPSTRUCTW()
     op.wFunc = 3  # FO_DELETE
     op.pFrom = str(Path(path).resolve()) + "\0"  # list must end with a double null

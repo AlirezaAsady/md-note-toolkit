@@ -283,8 +283,13 @@ class BatchTests(FileFixture):
         self.assertEqual(src.read_bytes(), original)
 
     def test_import_does_not_open_window(self):
+        # Every module, not just the two the suite imports: a Windows-only
+        # top-level import anywhere here is invisible until Linux runs it.
+        modules = ("md_batch", "md_batch_gui", "md_color_gui",
+                   "md_reverse_gui", "md_rtl_advance_gui", "md_menu_tools")
         result = subprocess.run(
-            [sys.executable, "-c", "import md_batch, md_batch_gui, tkinter; assert tkinter._default_root is None"],
+            [sys.executable, "-c",
+             f"import {', '.join(modules)}, tkinter; assert tkinter._default_root is None"],
             cwd=ROOT, capture_output=True, text=True,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
