@@ -119,7 +119,26 @@ Four mechanisms, ordered by real impact:
 
 ## Start here
 
-Two steps. Everything below this section is reference material.
+One setup, then two steps. Everything below this section is reference material.
+
+### 0. Once: point the tool at your stylesheet
+
+Every color the tool produces lives in [`md.css`](md.css). Keep that file in
+one fixed folder - it does **not** need to sit next to your notes - and write
+its **absolute path** into `CSS_HREF`, the first setting in `md_color_gui.py`:
+
+```python
+CSS_HREF = r"C:\Tools\md-note-toolkit\md.css"    # Windows
+CSS_HREF = "/home/you/md-note-toolkit/md.css"    # Linux, macOS
+```
+
+Why absolute: the value is copied into every note as
+`<link rel="stylesheet" href="...">`, and a viewer resolves that href relative
+to the **note**, not to the toolkit. A relative path therefore breaks the
+moment the note is opened from another folder or sent to a colleague. The
+default already resolves `md.css` next to the script, so a fresh clone works
+with no editing at all - change it only if you move the stylesheet, or if you
+want your own colors everywhere at once.
 
 ### 1. Hand the rules to an AI
 
@@ -148,6 +167,33 @@ Want the plain marker file back later? Same window, choose **Reverse** instead.
 
 That is the entire workflow: the AI writes markers, one window turns them into
 a styled right-to-left page, **Reverse** turns it back.
+
+### Optional: one menu for every window
+
+[`md_menu.cmd`](md_menu.cmd) is a number menu that opens any of the windows, so
+you do not have to remember four file names. Windows only. Put it in the same
+folder as the `.py` files and double-click it.
+
+```
+ ===========================================
+   md-note-toolkit
+ ===========================================
+   1   Batch        several files, one window
+   2   Color        markers -> HTML spans and folds
+   3   RTL          wrap right-to-left blocks
+   4   Color + RTL  opens both of the above
+   5   Reverse      HTML -> markers again
+   0   Exit
+ ===========================================
+```
+
+It is a `.cmd` file, so it is worth saying plainly what it does: it prints that
+menu, reads one number, and runs `start pythonw` on the matching Python file
+next to it. That is the whole file. It never creates, edits, copies, moves or
+deletes anything, never touches the network or the registry, and cannot launch
+any program outside its own folder. Every line is commented. If a window does
+not open, Python is not on your `PATH` - change `pythonw` to `python` on the
+five lines at the bottom and the error will be shown instead of hidden.
 
 ---
 
@@ -303,12 +349,66 @@ hidden state. The GUI windows pre-fill from the same constants.
 
 An empty value always means the feature is off.
 
-**About `CSS_HREF`:** the value is written into the note as
-`<link rel="stylesheet" href="...">`. Notes normally live in a different folder
-from this toolkit, so it **must be a complete path** (or a `file://` URL) - a
-relative href breaks as soon as the note is opened from anywhere else. The
-default resolves `md.css` next to the script, so a fresh clone works with no
-editing. Point it at your own stylesheet to restyle everything at once.
+`CSS_HREF` is the one setting worth changing before your first run - see
+[step 0](#0-once-point-the-tool-at-your-stylesheet) for why it has to be an
+absolute path.
+
+---
+
+## What the options do
+
+The table above names the constants; this is what each one actually changes in
+the output. The same names appear as controls in the windows.
+
+### Color - `md_color_gui.py`
+
+| Control | Constant | What it changes |
+|---|---|---|
+| Footnotes | `FOOT_ENABLED` | Off and `¹` tokens stay plain text instead of becoming colored spans |
+| Inline class | `FOOT_INLINE_CLASS` | classes on a token inside a sentence, default `p s22` = purple |
+| Definition class | `FOOT_DEF_CLASS` | classes on a token in column 0, default `g s22` = green |
+| Token alphabet | `FOOT_OPEN` | which characters count as a gloss token; empty turns the whole feature off |
+| Replace original | `REPLACE_ORIGINAL` | On, the note is rewritten in place and the old copy goes to the Recycle Bin. Off, the result is written to `notes.out.md` (`OUT_SUFFIX`) and the input is untouched |
+
+Headings and fenced code blocks are skipped whatever these are set to. An
+existing `<span>` around a token is left alone, so running this twice is safe.
+
+### RTL - `md_rtl_advance_gui.py`
+
+| Control | Constant | What it changes |
+|---|---|---|
+| Smart RTL | `SMART_RTL` | On, only a block that actually contains right-to-left text gets a `<div dir="rtl">`. Off, every block is wrapped - the older behaviour, still what you want for a note that is entirely Persian |
+| RTL characters | `RTL_PATTERN` | the pattern that decides what counts as right-to-left. The default covers Hebrew and every Arabic block, so Persian and Urdu work as they are. Add a script here if you need one; never add Latin or CJK, they are left-to-right and would come out backwards |
+| Heading levels | `HEADING_LEVELS` | which heading levels are wrapped even when the heading itself has no RTL text - `2-6`, `1,3-4`. A leading `^` or `-` inverts the list, so those levels are never wrapped |
+| Handle HTML | `HANDLE_HTML` | scan the file for tags that are opened and never closed, and report them with a line number |
+| Auto-close | `AUTOCLOSE_HTML` | when one is found, emit an empty `<div …>` `</div>` pair at that spot. Deliberately ugly and greppable, so a broken file is visible instead of silently losing its RTL from that point on |
+| Fold markers | `FOLD_OPEN`, `FOLD_CLOSE` | lines that pass through untouched and are never wrapped |
+| Head line | `HEAD_PATTERN` | recognizes the stylesheet `<link>` on the first line so it is never wrapped |
+| Replace original | `REPLACE_ORIGINAL` | as above; the alternative is `notes.rtl.md` |
+
+Blocks are grouped on blank lines, which is why a table or a list is never cut
+in half by a wrapper.
+
+### Reverse - `md_reverse_gui.py`
+
+| Control | Constant | What it changes |
+|---|---|---|
+| Color | `REVERSE_COLOR` | turn spans back into `^^` and `!!` using `RULES`, default `h=!!, *=^^` - the first class that matches wins, `*` is the fallback for everything else |
+| RTL (all) | `REMOVE_RTL` | strip every `<div dir="rtl">` wrapper |
+| RTL around headings only | `HEADINGS_ONLY` | keep the wrappers around prose and remove only the ones around headings; `HEADING_LEVELS` picks which levels count |
+| Remove first-line link | `REMOVE_LINK` | drop the stylesheet `<link>`, so the file is plain Markdown again |
+| Footnote classes | `FOOT_CLASSES` | which span classes are gloss tokens, default `p` inline and `g` for a definition |
+| Summary text | `DEFAULT_SUMMARY` | a summary equal to this string becomes a bare `^!` again. Must match the value in `md_color_gui.py` or titleless folds stop round-tripping |
+
+### Batch - `md_batch_gui.py` and `md_batch.py`
+
+| Control | Constant | What it changes |
+|---|---|---|
+| Operation | `DEFAULT_MODE` | which of `reverse`, `color`, `rtl`, `forward` starts selected. `forward` is color and then RTL in one pass |
+| Write to new file | `NEW_FILE` | keep the input and write `notes.raw.md` / `.out.md` / `.rtl.md` instead. Refused for `forward`, and refused when an output would collide with an input |
+
+Batch reads these constants, not the checkbox values of an open window, and
+importing any module opens nothing.
 
 ---
 
@@ -361,6 +461,7 @@ scripts do not care what your rules say - they only apply the marker syntax.
 
 ```
 md_batch.py            headless CLI and batch engine (main entry point)
+md_menu.cmd            Windows number menu that opens any window
 md_batch_gui.py        Tkinter window over the same engine
 md_color_gui.py        markers -> HTML spans, details, gloss colors
 md_rtl_advance_gui.py  RTL wrapping, smart mode, unclosed-tag detection
