@@ -266,8 +266,8 @@ them can be saved. The 39.3% note is not the ceiling either - the more color, fo
 glosses and formula spans a note carries, the more it saves.
 
 **The rules are the fixed cost.** `docs/SPEC.md` is about 10,000 characters and
-`docs/MY_STYLE.md` about 14,000. The AI needs both before it writes one marker, so for a
-note of 3,000 characters the rules cost several times the note every time you attach
+`docs/MY_STYLE.md` about 24,000. The AI needs both before it writes one marker, so for a
+note of 3,000 characters the rules cost more than ten times the note every time you attach
 them. Putting them in your editor's project instructions or system prompt stops the
 pasting and stops them drifting out of date; it does not stop them being sent. What the
 markers save is the note itself, and that saving repeats on every later session.
