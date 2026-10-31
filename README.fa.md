@@ -717,6 +717,7 @@ md_batch_gui.py        Tkinter window over the same engine
 md_color_gui.py        markers -> HTML spans, details, gloss colors
 md_rtl_advance_gui.py  RTL wrapping, smart mode, unclosed-tag detection
 md_reverse_gui.py      HTML -> markers, removes RTL wrappers and link line
+md_recycle.py          the one Recycle Bin call, shared by every script
 md_menu.cmd            Windows number menu that opens any window
 md_menu_tools.py       menu options 6 and 7: set CSS_HREF, desktop shortcut
 md_batch_ai.md         compact CLI/API reference written for AI agents

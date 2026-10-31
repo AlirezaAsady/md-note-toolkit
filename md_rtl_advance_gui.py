@@ -1,10 +1,11 @@
-import ctypes
 import os
 import re
 import subprocess
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, ttk
+
+from md_recycle import to_recycle_bin
 
 # Block-level HTML tags that must stay untouched (no RTL wrapping)
 HTML_TAGS = ("details", "pre", "table", "div", "script", "style")
@@ -341,40 +342,6 @@ def process_file(
 def default_out(src):
     # notes.md -> notes.rtl.md (same folder)
     return Path(src).with_name(Path(src).stem + OUT_SUFFIX)
-
-
-def to_recycle_bin(path):
-    # Move a file to the Windows Recycle Bin (recoverable) via the shell API
-    if os.name != "nt":
-        raise OSError("Recycle Bin is only supported on Windows")
-    # Imported here, not at the top of the file: wintypes declares VARIANT_BOOL
-    # with _type_ "v", which only the Windows ctypes backend supports, so a
-    # module-level import makes this file unimportable on Linux and macOS.
-    from ctypes import wintypes
-
-    class SHFILEOPSTRUCTW(ctypes.Structure):
-        _pack_ = 1 if ctypes.sizeof(ctypes.c_void_p) == 4 else 8
-        _fields_ = [
-            ("hwnd", wintypes.HWND),
-            ("wFunc", wintypes.UINT),
-            ("pFrom", wintypes.LPCWSTR),
-            ("pTo", wintypes.LPCWSTR),
-            ("fFlags", ctypes.c_ushort),
-            ("fAnyOperationsAborted", wintypes.BOOL),
-            ("hNameMappings", ctypes.c_void_p),
-            ("lpszProgressTitle", wintypes.LPCWSTR),
-        ]
-
-    op = SHFILEOPSTRUCTW()
-    op.wFunc = 3  # FO_DELETE
-    op.pFrom = str(Path(path).resolve()) + "\0"  # list must end with a double null
-    # ALLOWUNDO | NOCONFIRMATION | NOERRORUI | SILENT
-    op.fFlags = 0x0040 | 0x0010 | 0x0400 | 0x0004
-    if (
-        ctypes.windll.shell32.SHFileOperationW(ctypes.byref(op))
-        or op.fAnyOperationsAborted
-    ):
-        raise OSError("Could not move the original file to the Recycle Bin")
 
 
 def retire_original(src):
