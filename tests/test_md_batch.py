@@ -296,14 +296,30 @@ class BatchTests(FileFixture):
 
 
 class GuiTests(FileFixture):
+    """One Tk root for the whole class, not one per test.
+
+    Every Tk() shares one Tcl runtime per process, and destroying the last one
+    can finalize it, so the next Tk() dies inside _tkinter.create with
+    "invalid command name tcl_findLibrary" (seen on Windows, Python 3.10).
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.root = tk.Tk()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.root.destroy()
+
     def setUp(self):
         super().setUp()
-        self.root = tk.Tk()
         self.app = gui.App(self.root)
         self.root.update()
 
     def tearDown(self):
-        self.root.destroy()
+        # The root outlives the test, so its widgets must not.
+        for child in self.root.winfo_children():
+            child.destroy()
         super().tearDown()
 
     def wait_for_job(self):
