@@ -4,132 +4,32 @@
 
 [![CI](https://github.com/AlirezaAsady/md-note-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/AlirezaAsady/md-note-toolkit/actions/workflows/ci.yml)
 
-Markdown note preprocessor that keeps the **raw file clean** while producing a
-styled, right-to-left, bilingual-friendly rendered note.
+Write notes as plain Markdown with a few small markers, and turn them into a
+styled, right-to-left note with one click - or back again.
 
-It adds the four things Markdown has no native syntax for - per-block text
-direction, colored emphasis, collapsible sections, second-language glosses -
-and it can convert the result **back** to clean Markdown.
+Python standard library only, no pip install.
 
-No packages to install - Python standard library only.
+| raw file - what you or an AI writes | styled note - what you read |
+|---|---|
+| <img src="examples/img/section2-before.webp" width="420" alt="A note section written as plain Markdown with small markers"> | <img src="examples/img/section2-after.webp" width="420" alt="The same section rendered with colors, gloss tokens and right-to-left text"> |
 
-**In a hurry?** Jump to [Install Python](#install-python-from-scratch) if you
-do not have it yet, then [Start here](#start-here): hand
-[`docs/MY_STYLE.md`](docs/MY_STYLE.md) to an AI and run
-`python md_batch_gui.py`. The rest of this page explains *why*.
+- **A clean raw file:** plain Markdown plus tiny markers, easy to read, diff and hand to an AI.
+- **A styled RTL note:** colors, folds, glosses and per-block text direction, generated for you.
+- **A way back:** Reverse turns the styled note into the clean raw file again.
 
----
+## Quick start
 
-## The problem
+Step 1, and step 3 on Linux and macOS, need a terminal. Windows: press the Windows
+key, type `cmd`, press Enter. macOS: Applications > Utilities > Terminal. Linux: Ctrl+Alt+T.
 
-Markdown has no native support for:
+**1. Check Python.** Type `python --version` and press Enter (`python3` on Linux and
+macOS). It worked if you see `Python 3.10` or a higher number. If Windows opens the
+Microsoft Store instead, Python is not installed - read the box below.
 
-| Missing | What people do instead | Cost |
-|---|---|---|
-| per-block text direction | hand-written `<div dir="rtl">` | raw file becomes unreadable |
-| colored emphasis | `<span style="...">` | inline styles, unmaintainable |
-| collapsible sections | `<details>` + `<summary>` | 5 lines instead of 2 |
-| second-language glosses | inline translation | layout breaks, tokens explode |
-
-Persian, Arabic and Hebrew writers, and anyone taking **bilingual notes**, hit
-all four constantly. The usual workaround - writing raw HTML inside Markdown -
-makes the source file hard to read, hard to diff, and fragile for an AI to edit.
-
-This toolkit keeps the source as plain Markdown plus a few tiny markers, and
-generates the HTML at processing time.
-
-> **The spec is the product; the scripts are the compiler.** Note quality comes
-> from the style rules in [`docs/MY_STYLE.md`](docs/MY_STYLE.md), not from the code. The code
-> only makes applying those rules cheap. Because the rules are a plain text
-> file, you can hand them to any AI and rewrite them for your own language.
-
----
-
-## Why Markdown and not PDF or WORD
-
-- **Plain text means diff, grep and version control.** PDF and WORD are binary:
-  you cannot see what changed, cannot merge, cannot search precisely. With a
-  fixed section vocabulary (`Pitfalls`, `Cheat Sheet`, `Equivalents`, ...) one
-  `grep` finds a section across *all* notes of *any* subject.
-- **AI-native.** Models read and write Markdown natively. WORD and PDF need
-  conversion in both directions - extra tokens plus lost structure, and tables
-  and text direction usually break in the process.
-- **No vendor lock-in.** Renders in VS Code, GitHub, Obsidian and any browser.
-  Tens of KB instead of MB.
-- **Zero dependency.** This toolkit imports nothing outside the standard
-  library (`tkinter`, `re`, `ctypes`, `pathlib`, `argparse`). No `pip install`,
-  no virtual environment - copy the folder and run it.
-
-Markdown is a **worse** choice for precise print layout, heavy mathematical
-publishing, and non-technical collaborators who expect WORD.
-
----
-
-## Why it saves tokens
-
-The point is not prettier notes. It is that an AI can produce high-quality
-notes for a fraction of the cost, because it writes - and later re-reads -
-clean Markdown instead of HTML.
-
-**Measured** on [`examples/before.md`](examples/before.md), a complete sample
-note with a TOC, prose carrying both emphasis markers, a table, seven gloss
-tokens and three fold blocks:
-
-| | characters | lines |
-|---|---|---|
-| raw markers - what the AI writes and re-reads | 3086 | 87 |
-| rendered output - what the viewer shows | 4229 | 170 |
-
-The source is **1143 characters (27 percent) smaller** than the artifact,
-about 285 tokens. That is paid once per generation and then again on every
-re-read of the note.
-
-Reproduce it with [`examples/measure.py`](examples/measure.py), which also
-checks that the committed artifact really is tool output and that `reverse`
-gives the source back.
-
-Four mechanisms, ordered by real impact:
-
-1. **Cheap re-reading - the biggest win.** Generation savings happen once;
-   re-reading savings happen every session. If you keep rendered HTML as your
-   source of truth, every follow-up conversation pays for that HTML again.
-   `reverse` gets you back to clean Markdown, so you never have to.
-2. **Safe editing.** Clean Markdown diffs mean one section can be sent and
-   edited in isolation. With hand-written HTML, an AI can drop a single
-   `</div>` and - because nesting is tracked by a counter - **the rest of the
-   file silently stops being RTL-wrapped.** This really happened: 13 unclosed
-   `<div dir="ltr">` tags, and an entire exercises section came out
-   un-processed. The optional auto-close pass emits an *empty, greppable* tag
-   pair rather than healing silently, so the damage is visible:
-   search `<div[^>]*>\s*\n</div>`.
-3. **Glosses instead of translations.** A `¹` marker plus a two-word gloss
-   costs a handful of tokens. A full inline translation costs five to ten
-   times that and wrecks the layout - and the short gloss doubles as
-   vocabulary practice.
-4. **Short markers instead of HTML.** `^!` / `!^` instead of
-   `<details>` + `<summary>`; `^^x^^` instead of `<span class="r">x</span>`.
-
----
-
-## Requirements
-
-- **Python 3.10 or newer.** The code uses `Path | None` union annotations and
-  `list[str]` generics, which need 3.10. Tested on 3.14. Nothing else required -
-  no `pip install`, no packages, no config file.
-- Any operating system. When replacing an original file, Windows sends the old
-  copy to the Recycle Bin; Linux and macOS rename it to `<name>.bak` (unique,
-  never overwritten) and report that as a warning. Nothing is ever deleted.
-
-### Install Python from scratch
-
-Never used a terminal before? Follow these in order. Every line is typed
-exactly as shown, then Enter.
+<details>
+<summary>I do not have Python</summary>
 
 **Windows**
-
-1. Press the Windows key, type `cmd`, press Enter. A black box opens - that is
-   the terminal.
-2. Install Python:
 
 ```bat
 winget install Python.Python.3.12
@@ -137,115 +37,69 @@ winget install Python.Python.3.12
 
 If that fails (`winget` is missing on old builds), download the installer from
 <https://www.python.org/downloads/windows/>, run it, and **tick the box
-"Add python.exe to PATH"** on the first screen before clicking Install.
+"Add python.exe to PATH"** on the first screen before clicking Install. The
+installer already includes tkinter, the GUI library the windows use.
 
-3. Close the black box and open a new one, then check:
+Close the terminal, open a new one, and run `python --version` again.
 
-```bat
-python --version
-```
-
-Anything 3.10 or higher is fine.
-
-**Linux**
+**Linux (Debian, Ubuntu, Mint)**
 
 ```bash
-sudo apt install python3        # Debian, Ubuntu, Mint
-sudo dnf install python3        # Fedora
+sudo apt install python3 python3-tk
 python3 --version
 ```
 
-**macOS**
+The windows need `python3-tk`; Python alone is not enough. On other distros,
+install Python plus your distro's Tk package for Python.
+
+**macOS (Homebrew)**
 
 ```bash
 brew install python
 python3 --version
+brew install python-tk@3.14
 ```
 
-### Put the files on your computer and run them
+Homebrew ships tkinter separately. Use the same `3.x` number that
+`python3 --version` printed, for example `python-tk@3.13`.
 
-1. Get the files: download the ZIP from this repo's green **Code** button and
-   extract it, or `git clone` it. Either way you end up with one folder holding
-   the `.py` files.
-2. Tell the terminal to go into that folder. Type `cd ` (with the trailing
-   space), then drag the folder onto the terminal window - it fills in the path
-   for you - then Enter:
+**Check the GUI library** on any system. A small test window should open:
 
-```bat
-cd C:\Users\you\Downloads\md-note-toolkit
+```bash
+python3 -m tkinter
 ```
 
-3. Run a tool. On Windows use `python`, on Linux and macOS use `python3`:
+Python 3.10 is the minimum because the code uses `Path | None` and `list[str]`
+annotations. Tested on 3.10 and 3.14.
 
-```bat
-python md_batch_gui.py
-```
+</details>
 
-A window opens. If instead the terminal prints that `python` is not recognized,
-step 2 of the install did not add it to your PATH - rerun the installer and
-tick that box.
+**2. Get the files.** Press the green **Code** button on this page, then **Download
+ZIP**, and extract it, or run `git clone https://github.com/AlirezaAsady/md-note-toolkit.git`.
+It worked if the folder holds `md_menu.cmd` and `md_batch_gui.py`.
 
----
+**3. Start it.**
 
-## Start here
+- **Windows:** double-click `md_menu.cmd`, type `1`, press Enter.
+- **Linux / macOS** (the menu is Windows only): type `cd `, drag the folder onto the
+  terminal, press Enter, then run `python3 md_batch_gui.py`.
 
-One setup, then two steps. Everything below this section is reference material.
+It worked if a window titled **Markdown batch processor** opens. You never edit code
+to point at the stylesheet: the default works, and if you move `md.css`, menu option 6
+rewrites the path for you.
 
-### 0. Once: point the tool at your stylesheet
+<details>
+<summary>Windows warned me about the file</summary>
 
-Every color the tool produces lives in [`md.css`](md.css). Keep that file in
-one fixed folder - it does **not** need to sit next to your notes - and write
-its **absolute path** into `CSS_HREF`, the first setting in `md_color_gui.py`:
+A `.cmd` that came from a download can raise **Open File - Security Warning**.
+Right-click `md_menu.cmd`, choose **Properties**, tick **Unblock**, press OK, and
+open it again. The file is a few lines of plain text - you can read it in
+Notepad first if you prefer. No window opens at all? Python is not on `PATH`.
 
-```python
-CSS_HREF = r"C:\Tools\md-note-toolkit\md.css"    # Windows
-CSS_HREF = "/home/you/md-note-toolkit/md.css"    # Linux, macOS
-```
+</details>
 
-Why absolute: the value is copied into every note as
-`<link rel="stylesheet" href="...">`, and a viewer resolves that href relative
-to the **note**, not to the toolkit. A relative path therefore breaks the
-moment the note is opened from another folder or sent to a colleague. The
-default already resolves `md.css` next to the script, so a fresh clone works
-with no editing at all - change it only if you move the stylesheet, or if you
-want your own colors everywhere at once.
-
-Rather than open the file? On Windows, `md_menu.cmd` option **6** asks for the
-path, checks it, and rewrites that one line for you.
-
-### 1. Hand the rules to an AI
-
-Send these two files to any AI and ask it to write your note with them:
-
-- [`docs/MY_STYLE.md`](docs/MY_STYLE.md) - **the rule book.** Which language is
-  used for what, the section names, how much color, where glosses go. Use it as
-  is, or rewrite it for your own language.
-- [`docs/SPEC.md`](docs/SPEC.md) - the grammar behind the rules: what
-  `^^text^^`, `^!` and `¹` mean, and what HTML each one becomes.
-
-The AI hands you back a plain `.md` file with small markers in it. You do not
-write those markers by hand, and you never write HTML.
-
-### 2. Run one command
-
-```
-python md_batch_gui.py
-```
-
-A window opens. Press **Add files**, pick the note the AI gave you, leave
-**Color + RTL** selected, press **Run batch**. The file is rewritten in place
-and the old copy goes to the Recycle Bin, so nothing is lost.
-
-Want the plain marker file back later? Same window, choose **Reverse** instead.
-
-That is the entire workflow: the AI writes markers, one window turns them into
-a styled right-to-left page, **Reverse** turns it back.
-
-### Optional: one menu for every window
-
-[`md_menu.cmd`](md_menu.cmd) is a number menu that opens any of the windows, so
-you do not have to remember four file names. Windows only. Put it in the same
-folder as the `.py` files and double-click it.
+<details>
+<summary>What the menu looks like</summary>
 
 ```
  ===========================================
@@ -262,84 +116,50 @@ folder as the `.py` files and double-click it.
  ===========================================
 ```
 
-It is a `.cmd` file, so it is worth saying plainly what it does. Options 1-5
-print that menu, read one number, and run `start pythonw` on the matching Python
-file next to them - the whole file is short enough to read in one screen.
-Options 6 and 7 hand over to [`md_menu_tools.py`](md_menu_tools.py), because
-checking a path and splicing it into Python source is not a job for batch:
+</details>
 
-- **6 Stylesheet** asks for the path, refuses anything that is not an absolute
-  path to an existing `.css` file (or a `http(s)://` / `file://` URL), and then
-  rewrites **one line** of `md_color_gui.py` - the `CSS_HREF =` assignment. It
-  counts the assignments first and gives up unless there is exactly one, keeps
-  the file's own line endings, and leaves the previous copy in
-  `md_color_gui.py.bak`. That is step 0 without opening an editor.
-- **7 Shortcut** asks PowerShell for a desktop shortcut to this menu. It creates
-  one `.lnk` and nothing else; delete it whenever you want.
+**4. Give the rules to an AI.** Attach [`docs/MY_STYLE.md`](docs/MY_STYLE.md) and
+[`docs/SPEC.md`](docs/SPEC.md) and ask it to write your note. You never write HTML. It
+worked if the file has markers like `^^...^^` and no `<div>` or `<span>`.
 
-Neither option reaches a file outside this folder, and neither touches the
-network. If a window does not open, Python is not on your `PATH` - change
-`pythonw` to `python` on the five launch lines and the error will be shown
-instead of hidden.
+<details>
+<summary>Prompt you can paste</summary>
 
----
-
-## Every other way to run it
-
-Optional - only if the window above does not fit how you work.
-
-Three single-file windows, one job each:
-
-```bash
-python md_color_gui.py           # markers -> HTML spans and folds
-python md_rtl_advance_gui.py     # add the RTL wrappers
-python md_reverse_gui.py         # HTML -> markers again
+```text
+Write a note about <TOPIC> for <WHAT YOU ALREADY KNOW>.
+Follow the attached docs/SPEC.md and docs/MY_STYLE.md exactly.
+Output only the Markdown source of the note, in one code block.
 ```
 
-Headless CLI, for scripts and for letting an AI drive the tool itself. Its own
-instructions are in [`md_batch_ai.md`](md_batch_ai.md):
+</details>
 
-```bash
-python md_batch.py forward "notes.md"          # apply color markers, then RTL
-python md_batch.py reverse "notes.md"          # back to clean Markdown
-python md_batch.py forward "a.md" "b.md"       # several files in one run
-python md_batch.py color "notes.md" --new      # write notes.out.md, keep input
-```
+**5. Style the note.** In the window press **Add files** and pick the note. Leave
+**Color + RTL** selected and press **Run batch**. It worked if the last log line starts
+with `Summary: saved=1`. The old file went to the Recycle Bin (Windows) or was renamed
+to `.bak` (Linux, macOS). **Reverse** brings the clean markers back.
 
-Modes: `reverse`, `color`, `rtl`, `forward` (= color then RTL). Default is
-`forward`. Exit codes: `0` success, `1` one or more files failed, `2` invalid
-arguments.
+Windows has no Recycle Bin for every location: a USB stick, a network share or a very
+large file can be deleted for good. Work on a copy there, or untick **Replace original**
+so the result is written next to the input.
 
-Programmatic use:
+That is the whole workflow: the AI writes markers, one window styles them, Reverse undoes it.
 
-```python
-import md_batch
-results = md_batch.run_batch(["a.md", "b.md"], mode="forward")
-for r in results:
-    print(r.source, r.status, r.warnings)
-```
+## The problem
 
-`run_batch` returns one record per file with `source`, `destination`, `status`
-(`saved` / `unchanged` / `error`), `warnings` and `error`. Failures never stop
-the remaining files.
+| Missing in Markdown | What people do instead | Cost |
+|---|---|---|
+| per-block text direction | hand-written `<div dir="rtl">` | raw file becomes unreadable |
+| colored emphasis | `<span style="...">` | inline styles, unmaintainable |
+| collapsible sections | `<details>` + `<summary>` | 5 lines instead of 2 |
+| second-language glosses | inline translation | layout breaks, tokens explode |
 
-Tests:
+Persian, Arabic and Hebrew writers, and anyone taking bilingual notes, hit all four. This
+toolkit keeps plain Markdown plus a few markers and generates the HTML.
 
-```bash
-python -m pytest                  # or: python tests/test_md_batch.py
-```
+> **The spec is the product; the scripts are the compiler.** Note quality comes
+> from the style rules, not from the code. The code only makes applying them cheap.
 
-28 tests, standard library `unittest` cases collected by pytest. No fixtures to
-download and no network access; the suite builds its own scratch files and mocks
-the Recycle Bin call. Every push to `main` runs it on Windows (Python 3.10 and
-3.14) and on Ubuntu - see [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
-
----
-
-## Syntax reference
-
-Write these in the raw Markdown file. Never write HTML by hand - the tool
-generates it, and `reverse` removes it again.
+## How it works
 
 | Marker | Becomes | Use for |
 |---|---|---|
@@ -349,162 +169,11 @@ generates it, and `reverse` removes it again.
 | `¹ word` | colored gloss token | short translation of a hard phrase |
 | ```` ``` ```` | left untouched | fenced code is never processed |
 
-Rules for the markers:
-
-- `^^` and `!!` stay on one line, are never nested, and never appear in
-  headings or code. Cap at 2-3 per ~20 lines or they stop meaning anything.
-- `^!` and `!^` each go **alone on their own line**. An optional short title
-  after `^!` becomes the collapsible summary. Everything inside the block is
-  left raw, exactly like a code fence.
-- A gloss token needs **a space before and after it** (`copy ¹ , no waiting`).
-  Those spaces are the token boundaries. The definition line starts with the
-  token in column 0 followed by a space, and sits in its own paragraph
-  directly below the table or block it explains - never inline mid-sentence.
-- Odd numbers of `^^` or `!!` on a line are left unchanged and reported as a
-  warning, never silently guessed.
-
-The full grammar, the exact HTML each marker becomes, and the round-trip
-contract live in [`docs/SPEC.md`](docs/SPEC.md).
-
----
-
-## Example
-
-`examples/` holds one complete note in both forms, so you can see exactly what
-the pipeline does before you run it on your own files.
-
-| File | What it is |
-|---|---|
-| [`before.md`](examples/before.md) | raw markers - what you or an AI writes |
-| [`after.md`](examples/after.md) | rendered output - the artifact a viewer shows |
-| [`measure.py`](examples/measure.py) | reproduces the character counts above and checks the round trip |
-
-`after.md` is generated, never edited by hand. Regenerate it with:
-
-```
-cp examples/before.md examples/after.md
-python md_batch.py forward examples/after.md
-```
-
-Then set its stylesheet `href` to `../md.css`. The tool writes the absolute
-path of the `md.css` sitting next to `md_color_gui.py`, which is right on your
-machine and useless to anyone else reading the repo.
-
-### How it looks
-
-GitHub strips the linked stylesheet, so the styled note can only be seen in VS
-Code or a browser. These are local renders of two sections of
-`examples/after.md`, next to the raw source they came from.
-
-**Section 2 - raw markers, then the generated note**
-
-| before | after |
-|---|---|
-| <img src="examples/img/section2-before.webp" width="420" alt="Section 2 as raw markers"> | <img src="examples/img/section2-after.webp" width="420" alt="Section 2 rendered with colors, gloss tokens and RTL"> |
-
-**The same section after changing two CSS classes by hand**
-
-<img src="examples/img/section2-after-reclassed.webp" width="620" alt="Section 2 rendered after two class names were edited">
-
-Exactly two words were edited in the generated file: `class="hy"` became
-`class="hy s26"`, and `class="r"` became `class="m"`. Nothing else moved. The
-classes live in [`md.css`](md.css) - `.r` red, `.m` magenta, `.hy` yellow
-highlight, `.s22` / `.s26` font sizes - so restyling is a one-word change per
-span, or a one-line change in the stylesheet if you would rather not touch the
-note at all. This is why the tool emits class names and never inline
-`style=""`: the rendered file stays editable after it is generated.
-
-**Section 3 - raw markers, then the generated note**
-
-| before | after |
-|---|---|
-| <img src="examples/img/section3-before.webp" width="420" alt="Section 3 as raw markers"> | <img src="examples/img/section3-after.webp" width="420" alt="Section 3 rendered with a red warning span and a collapsible block"> |
-
----
-
-## Configuration
-
-Every knob is a constant at the top of its module - no config file to find, no
-hidden state. The GUI windows pre-fill from the same constants.
-
-| Constant | Module | Meaning |
-|---|---|---|
-| `CSS_HREF` | `md_color_gui.py` | stylesheet linked into the output |
-| `FOOT_ENABLED`, `FOOT_OPEN` | `md_color_gui.py` | gloss token handling |
-| `OUT_SUFFIX`, `REPLACE_ORIGINAL` | `md_color_gui.py`, `md_rtl_advance_gui.py` | output naming |
-| `SMART_RTL` | `md_rtl_advance_gui.py` | wrap only blocks containing RTL script |
-| `RTL_RE` | `md_rtl_advance_gui.py` | which characters count as right-to-left |
-| `HEADING_LEVELS` | `md_rtl_advance_gui.py`, `md_reverse_gui.py` | `"2-6"`, `"1,3-4"`; prefix `^` inverts |
-| `AUTOCLOSE_HTML`, `HANDLE_HTML` | `md_rtl_advance_gui.py` | unclosed tag handling |
-| `FOLD_OPEN`, `FOLD_CLOSE`, `HEAD_PATTERN` | `md_rtl_advance_gui.py` | marker syntax, head line |
-| `RULES`, `REMOVE_RTL`, `REMOVE_LINK` | `md_reverse_gui.py` | reverse conversion scope |
-
-An empty value always means the feature is off.
-
-`CSS_HREF` is the one setting worth changing before your first run - see
-[step 0](#0-once-point-the-tool-at-your-stylesheet) for why it has to be an
-absolute path.
-
----
-
-## What the options do
-
-The table above names the constants; this is what each one actually changes in
-the output. The same names appear as controls in the windows.
-
-### Color - `md_color_gui.py`
-
-| Control | Constant | What it changes |
-|---|---|---|
-| Footnotes | `FOOT_ENABLED` | Off and `¹` tokens stay plain text instead of becoming colored spans |
-| Inline class | `FOOT_INLINE_CLASS` | classes on a token inside a sentence, default `p s22` = purple |
-| Definition class | `FOOT_DEF_CLASS` | classes on a token in column 0, default `g s22` = green |
-| Token alphabet | `FOOT_OPEN` | which characters count as a gloss token; empty turns the whole feature off |
-| Replace original | `REPLACE_ORIGINAL` | On, the note is rewritten in place and the old copy goes to the Recycle Bin. Off, the result is written to `notes.out.md` (`OUT_SUFFIX`) and the input is untouched |
-
-Headings and fenced code blocks are skipped whatever these are set to. An
-existing `<span>` around a token is left alone, so running this twice is safe.
-
-### RTL - `md_rtl_advance_gui.py`
-
-| Control | Constant | What it changes |
-|---|---|---|
-| Smart RTL | `SMART_RTL` | On, only a block that actually contains right-to-left text gets a `<div dir="rtl">`. Off, every block is wrapped - the older behaviour, still what you want for a note that is entirely Persian |
-| RTL characters | `RTL_PATTERN` | the pattern that decides what counts as right-to-left. The default covers Hebrew and every Arabic block, so Persian and Urdu work as they are. Add a script here if you need one; never add Latin or CJK, they are left-to-right and would come out backwards |
-| Heading levels | `HEADING_LEVELS` | which heading levels are wrapped even when the heading itself has no RTL text - `2-6`, `1,3-4`. A leading `^` or `-` inverts the list, so those levels are never wrapped |
-| Handle HTML | `HANDLE_HTML` | scan the file for tags that are opened and never closed, and report them with a line number |
-| Auto-close | `AUTOCLOSE_HTML` | when one is found, emit an empty `<div …>` `</div>` pair at that spot. Deliberately ugly and greppable, so a broken file is visible instead of silently losing its RTL from that point on |
-| Fold markers | `FOLD_OPEN`, `FOLD_CLOSE` | lines that pass through untouched and are never wrapped |
-| Head line | `HEAD_PATTERN` | recognizes the stylesheet `<link>` on the first line so it is never wrapped |
-| Replace original | `REPLACE_ORIGINAL` | as above; the alternative is `notes.rtl.md` |
-
-Blocks are grouped on blank lines, which is why a table or a list is never cut
-in half by a wrapper.
-
-### Reverse - `md_reverse_gui.py`
-
-| Control | Constant | What it changes |
-|---|---|---|
-| Color | `REVERSE_COLOR` | turn spans back into `^^` and `!!` using `RULES`, default `h=!!, *=^^` - the first class that matches wins, `*` is the fallback for everything else |
-| RTL (all) | `REMOVE_RTL` | strip every `<div dir="rtl">` wrapper |
-| RTL around headings only | `HEADINGS_ONLY` | keep the wrappers around prose and remove only the ones around headings; `HEADING_LEVELS` picks which levels count |
-| Remove first-line link | `REMOVE_LINK` | drop the stylesheet `<link>`, so the file is plain Markdown again |
-| Footnote classes | `FOOT_CLASSES` | which span classes are gloss tokens, default `p` inline and `g` for a definition |
-| Summary text | `DEFAULT_SUMMARY` | a summary equal to this string becomes a bare `^!` again. Must match the value in `md_color_gui.py` or titleless folds stop round-tripping |
-
-### Batch - `md_batch_gui.py` and `md_batch.py`
-
-| Control | Constant | What it changes |
-|---|---|---|
-| Operation | `DEFAULT_MODE` | which of `reverse`, `color`, `rtl`, `forward` starts selected. `forward` is color and then RTL in one pass |
-| Write to new file | `NEW_FILE` | keep the input and write `notes.raw.md` / `.out.md` / `.rtl.md` instead. Refused for `forward`, and refused when an output would collide with an input |
-
-Batch reads these constants, not the checkbox values of an open window, and
-importing any module opens nothing.
-
----
-
-## The pipeline
+- `^^` and `!!` open and close on one line, never nest, never go in headings or code.
+- Use 2-3 of them per ~20 lines at most, or they stop meaning anything.
+- `^!` and `!^` each stand alone on their own line. Text after `^!` becomes the title.
+- A gloss token needs a space on both sides (`copy ¹ , no waiting`); its definition line starts with it in column 0.
+- An odd number of `^^` or `!!` on a line is left as written and reported. The tool never guesses.
 
 ```
 raw notes (markers)  --color-->  HTML spans + details  --rtl-->  styled RTL note
@@ -512,120 +181,394 @@ raw notes (markers)  --color-->  HTML spans + details  --rtl-->  styled RTL note
         +------------------------- reverse ----------------------------+
 ```
 
-`forward` runs color then RTL. `reverse` runs the opposite and returns clean
-marker source. The round trip is content-identical, which is what makes it safe
-to keep the raw file as the single source of truth.
+Full grammar, the generated HTML and the round-trip rules: [`docs/SPEC.md`](docs/SPEC.md).
 
-Replacement is non-destructive: the original goes to the Recycle Bin, and
-unchanged files are not touched at all, so their timestamps stay put.
+## Example gallery
 
----
+The pair at the top is section 2 of [`examples/before.md`](examples/before.md)
+(raw) and [`examples/after.md`](examples/after.md) (generated). GitHub strips the
+stylesheet, so all images are local renders.
 
-## Who this is NOT for
+<details>
+<summary>Section 3, and what a fold looks like</summary>
 
-If you only publish to GitHub, you probably do not need this - GitHub already
-renders `<div dir="rtl">`, `<details>` and `[!NOTE]` callouts.
+| before | after |
+|---|---|
+| <img src="examples/img/section3-before.webp" width="420" alt="Section 3 as raw markers"> | <img src="examples/img/section3-after.webp" width="420" alt="Section 3 rendered with a red warning span and a collapsible block"> |
 
-The toolkit pays off when you **write notes daily** and want the raw file
-readable, diffable and cheap for an AI to edit, while still getting your own
-visual style in VS Code or a browser.
+</details>
 
----
+<details>
+<summary>Restyle it: change a class, or change the stylesheet</summary>
 
-## Personalizing the style spec
+<img src="examples/img/section2-after-reclassed.webp" width="620" alt="Section 2 rendered after two class names were edited">
 
-[`docs/MY_STYLE.md`](docs/MY_STYLE.md) is one worked example of a complete note style:
-language policy, section vocabulary, emphasis caps, table rules, gloss
-placement, exercises. It is **not** a requirement of the tool.
+Two words were edited in the generated file: `class="hy"` became
+`class="hy s26"`, and `class="r"` became `class="m"`. Nothing else moved. The
+tool emits class names, never inline `style=""`, so the rendered file stays
+editable. To recolor every note at once, edit [`md.css`](md.css) instead:
 
-The grammar it builds on - what each marker means, what HTML comes out, what
-must never be written by hand - is specified separately in
-[`docs/SPEC.md`](docs/SPEC.md). That file is language-agnostic and is what you
-hand to an AI when you want notes that conform to your own style.
+```css
+.r {
+  color: #c00000;            /* ^^text^^, was #ff0000 */
+}
+.hy {
+  background-color: #ffe08a; /* !!text!!, was #ffff00 */
+}
+```
 
-The intended workflow is to copy it and rewrite it with any AI: change the
-language pair, change the section names, change what gets emphasized. The
-scripts do not care what your rules say - they only apply the marker syntax.
+</details>
 
----
+## Make it yours
 
-## Project layout
+The scripts never read your style; [`docs/MY_STYLE.md`](docs/MY_STYLE.md) tells the AI.
+Its defaults: simple English (B2) explanations; Persian for questions, exercises, hard
+points and `¹` glosses; fixed section names; at most 2-3 colored markers per section.
+
+| I want... | Tell the AI... |
+|---|---|
+| more Persian paragraphs, English only for terms | "Write explanations in Persian. Keep technical terms and code comments in English." |
+| another language pair or level | "Replace Persian with Arabic and B2 with C1." |
+| less color, no glosses, other section names | "At most 1 marker per section." / "Do not use gloss tokens." / "Rename the sections to ..." |
+| another right-to-left script | nothing - edit `RTL_PATTERN` in `md_rtl_advance_gui.py` (one constant, also a field in the RTL window) |
+| a left-to-right language | nothing - choose **Color** instead of **Color + RTL** and keep colors, folds and glosses |
+
+To change it: copy `docs/MY_STYLE.md`, edit the lines under `## Language` (or ask any AI
+to rewrite them), then send your copy plus `docs/SPEC.md` with every note request. The
+marker syntax is fixed. The style rules are free.
+
+## Token savings
+
+**The comparison that matters is not raw markers versus rendered HTML. It is the same AI
+writing the same note twice.**
+
+| the same note, written twice | with the rules attached | without them |
+|---|---|---|
+| what the AI types | `^^x^^`, `!!x!!`, `^!` … `!^`, `¹`, `$a^2+b^2$` | `<span class="f1 fm">x</span>`, `<div dir="rtl">`, `<details>` + `<summary>`, plus a `<style>` block defining those classes |
+| what you keep and re-read | that marker file | that HTML file |
+| what breaks | nothing - the tool opens and closes every tag | unclosed tags, silently lost RTL |
+
+The rules do the saving; the toolkit only makes them cheap to keep. Without them the AI
+still writes the HTML, and that HTML is the file you re-read in every later session.
+Measured on a prose-heavy note the author wrote that way, before this toolkit existed:
+
+| | characters |
+|---|---|
+| what the AI typed by hand | 27233 |
+| of that, HTML markup instead of content | 12004 (44.1%) |
+| the same note written with markers | 16517 |
+| saved, on this write and on every re-read | 10716 (39.3%) |
+
+**Which end of that range you are on is your note's shape, not the toolkit's.** A folder
+of 34 SQL study notes measured **7 to 8 percent** and is the floor: fenced code and pipe
+tables are 48% of those files and are byte-identical in both forms, so almost nothing in
+them can be saved. The 39.3% note is not the ceiling either - the more color, folds,
+glosses and formula spans a note carries, the more it saves.
+
+**The rules are the fixed cost.** `docs/SPEC.md` is about 10,000 characters and
+`docs/MY_STYLE.md` about 14,000. The AI needs both before it writes one marker, so for a
+note of 3,000 characters the rules cost several times the note every time you attach
+them. Putting them in your editor's project instructions or system prompt stops the
+pasting and stops them drifting out of date; it does not stop them being sent. What the
+markers save is the note itself, and that saving repeats on every later session.
+
+<details>
+<summary>Why it saves tokens</summary>
+
+Four mechanisms, biggest first:
+
+1. **Re-reading.** Generation is paid once; re-reading is paid every session.
+   Reverse means you never keep HTML as your source.
+2. **Safe editing.** One hand-written HTML note once had 13 unclosed
+   `<div dir="ltr">` tags, and a whole exercises section silently lost its RTL.
+   With markers there is no HTML to break. If a tag is still left open, the
+   tool writes an empty, greppable tag pair instead of healing it silently:
+   search `<div[^>]*>\s*\n</div>`.
+3. **Glosses.** A `¹` plus two words costs a few tokens; a full translation
+   costs 5 to 10 times more and breaks the layout.
+4. **Short markers.** `^!` / `!^` instead of `<details>` + `<summary>`;
+   `^^x^^` instead of `<span class="r">x</span>`.
+
+</details>
+
+<details>
+<summary>What each tag and each span costs</summary>
+
+Each row is the same formatting written both ways. The text you wrote is not in these
+numbers - only the markup around it.
+
+| as a marker | chars | as hand-written HTML | chars | saved each time |
+|---|---|---|---|---|
+| `!!term!!` | 8 | `<span class="hy">term</span>` | 28 | 20 |
+| `$a^2+b^2$` | 9 | `<span class="f1 fm">a^2+b^2</span>` | 34 | 25 |
+| `¹` | 1 | `<span class="p s22">¹</span>` | 28 | 27 |
+| `^! Title` + `!^` | 11 | `<details dir="rtl">` + `<summary>` + `<div dir="ltr">` + 2 closes | 78 | 67 |
+| nothing | 0 | `<div dir="rtl">` … `</div>` around a block | 23 | 23 |
+| nothing | 0 | a `<style>` block defining the classes | 2820 | 2780 once |
+
+`$a^2+b^2$` is the only row that is not a toolkit marker. `docs/MY_STYLE.md` allows KaTeX
+math and the scripts pass it through untouched; the HTML column is what the AI typed for
+that same formula before the rules existed.
+
+The last two rows are what the tool takes off your hands: the marker file never types
+them, and the rendered file gets them back on its own.
+
+The 39.3% note carried **312 span pairs - 8092 characters of span tags, across 43
+different class names.** One of them, `<span class="f1 fm">`, appeared 102 times at 27
+characters each: 2754 characters for a single formatting decision, plus the 2820-character
+`<style>` block written to define it. That class exists in neither `md.css` nor any script
+in this repo - the AI invented it, and typing it 102 times is what the rules stop.
+
+Four kinds of marker plus plain math in the marker file. Forty-three span class names in
+the hand-written one.
+
+</details>
+
+<details>
+<summary>Raw markers versus rendered output</summary>
+
+The other comparison, the viewer's side of it, measured on
+[`examples/before.md`](examples/before.md):
+
+| | characters | lines |
+|---|---|---|
+| raw markers - what the AI writes and re-reads | 3086 | 87 |
+| rendered output - what the viewer shows | 4229 | 170 |
+
+The raw file is 1143 characters smaller, about 27 percent (stylesheet line excluded).
+`examples/measure.py` counts characters and runs no tokenizer - the "about 285 tokens" it
+prints is only the usual rule of thumb of about 4 English characters per token. Persian
+needs more tokens per character than English, and every wrapper the tool adds is pure
+ASCII, so the real token saving is smaller than the character saving.
+
+</details>
+
+<details>
+<summary>What moves your number</summary>
+
+The percentage tracks how many of these constructs a note uses per thousand characters,
+not its length and not its language mix. What moves it:
+
+- **Markers per KB.** More colors, folds and glosses mean more saving.
+- **RTL blocks.** Each one gets a wrapper the raw file does not have.
+- **Note size.** The fixed stylesheet line weighs more in a small note.
+- **Persian share.** Persian usually costs more tokens per character than
+  English, so in tokens it dilutes the percentage even when the characters
+  saved are the same.
+- **Tokenizer.** Any real tokenizer will do; they disagree with each other, so
+  name the one you used next to the numbers.
+
+Both ends above were measured on the author's own study notes. Only the summaries are
+published; the notes themselves stay private.
+
+</details>
+
+Reproduce the single-file numbers with `python examples/measure.py`. It also checks that
+`after.md` is real tool output and that Reverse gives the source back. It takes one file
+today, so loop over your own folder to get your own number.
+
+## Is it for you?
+
+- **Yes, if** you write notes daily and want a raw file that stays readable, diffable and
+  cheap for an AI to edit.
+- **No, if** you need precise print layout, heavy math, or collaborators who expect Word.
+  Word and PDF are better there.
+- **GitHub only?** GitHub keeps `dir` and `details` when it renders Markdown, but drops the
+  stylesheet link, so the colors do not show. You still get the clean raw file, the RTL
+  wrappers and the fold markup. Check it once with your own gist before you rely on it.
+
+## Reference
+
+<details>
+<summary>Command line and Python API</summary>
+
+```bash
+python md_batch.py forward "notes.md"          # color, then RTL
+python md_batch.py reverse "notes.md"          # back to clean Markdown
+python md_batch.py forward "a.md" "b.md"       # several files in one run
+python md_batch.py color "notes.md" --new      # write notes.out.md, keep input
+```
+
+Modes: `reverse`, `color`, `rtl`, `forward` (= color then RTL). `--new` works
+for single-step modes only and never overwrites an existing output. Exit codes:
+`0` success, `1` one or more files failed, `2` invalid arguments.
+
+```python
+import md_batch
+results = md_batch.run_batch(["a.md", "b.md"], mode="forward")
+for r in results:
+    print(r.source, r.status, r.warnings)
+```
+
+Each record has `source`, `destination`, `status` (`saved` / `unchanged` /
+`error`), `warnings` and `error`. A failure never stops the remaining files.
+An unchanged file is not rewritten, so its timestamp stays put.
+
+Instructions written for an AI that drives the CLI: [`md_batch_ai.md`](md_batch_ai.md).
+
+</details>
+
+<details>
+<summary>All settings</summary>
+
+Every setting is a constant at the top of its script. The GUI windows pre-fill from
+these constants. An empty value means the feature is off.
+
+**Color - `md_color_gui.py`**
+
+| Constant | Default | In the window | What it changes |
+|---|---|---|---|
+| `CSS_HREF` | `md.css` next to the script | - | stylesheet linked on line 1. Must be absolute: a viewer resolves it relative to the note. Menu option 6 rewrites it |
+| `FOOT_ENABLED` | `True` | Color footnotes | off: `¹` tokens stay plain text |
+| `FOOT_INLINE_CLASS` | `"p s22"` | - | classes of a token inside a sentence (purple) |
+| `FOOT_DEF_CLASS` | `"g s22"` | - | classes of a token in column 0 (green) |
+| `FOOT_OPEN` | `¹²³⁴⁵⁶⁷⁸⁹⁰` | - | characters that start a token; keep equal in `md_reverse_gui.py` |
+| `DEFAULT_SUMMARY` | a Persian label | - | title of a fold with no title; keep equal in `md_reverse_gui.py` |
+| `REPLACE_ORIGINAL` | `True` | Replace original | on: rewrite in place, old copy to the Recycle Bin. Off: write `notes.out.md` |
+| `OUT_SUFFIX` | `".out.md"` | - | name of the new file when replace is off |
+
+Headings and fenced code are always skipped. An existing `<span>` around a
+token is left alone, so running twice is safe.
+
+**RTL - `md_rtl_advance_gui.py`**
+
+| Constant | Default | In the window | What it changes |
+|---|---|---|---|
+| `SMART_RTL` | `True` | checkbox | on: wrap only blocks that contain RTL text. Off: wrap every block |
+| `RTL_PATTERN` | Hebrew + all Arabic blocks | field | which characters count as RTL. Never add Latin or CJK. `RTL_RE` is compiled from it |
+| `HEADING_LEVELS` | `"1-6"` | field | heading levels always wrapped: `2-6`, `1,3-4`. Leading `^` or `-` means never |
+| `HANDLE_HTML` | `True` | checkbox | copy hand-written HTML blocks unchanged and report unclosed tags |
+| `AUTOCLOSE_HTML` | `True` | checkbox | after an unclosed tag, write an empty, greppable close tag |
+| `HTML_TAGS` | `details, pre, table, div, script, style` | - | block tags that pass through unwrapped |
+| `FOLD_OPEN`, `FOLD_CLOSE` | `^!`, `!^` | fields | fold marker lines, never wrapped |
+| `HEAD_PATTERN` | the stylesheet `<link>` | field | first line kept outside every wrapper |
+| `REPLACE_ORIGINAL` | `True` | checkbox | as above; off writes `notes.rtl.md` |
+| `OUT_SUFFIX` | `".rtl.md"` | - | name of the new file when replace is off |
+
+Blocks are split on blank lines, so a table or a list is never cut in half.
+
+**Reverse - `md_reverse_gui.py`**
+
+| Constant | Default | In the window | What it changes |
+|---|---|---|---|
+| `REVERSE_COLOR` | `True` | Color (spans, ^! blocks) | spans and folds back to markers |
+| `RULES` | `"h=!!, *=^^"` | Rules | class to marker; first match wins, `*` is the fallback |
+| `REMOVE_RTL` | `True` | RTL wrappers (all) | strip every `<div dir="rtl">` |
+| `HEADINGS_ONLY` | `False` | RTL around headings only | keep prose wrappers, remove heading ones |
+| `HEADING_LEVELS` | `"1-6"` | levels box | which levels count for the option above |
+| `REMOVE_LINK` | `True` | Remove first-line `<link>` | drop the stylesheet line |
+| `FOOT_CLASSES` | `("p", "g")` | - | span classes that are gloss tokens |
+| `FOOT_OPEN`, `DEFAULT_SUMMARY` | as in Color | - | must match `md_color_gui.py` |
+
+Replace original starts unticked here; the new file is `notes.raw.md`.
+
+**Batch - `md_batch.py`, `md_batch_gui.py`**
+
+| Constant | Default | In the window | What it changes |
+|---|---|---|---|
+| `DEFAULT_MODE` | `"forward"` | Operation | which mode starts selected; `forward` is shown as Color + RTL |
+| `NEW_FILE` | `False` | Write to new file | keep the input, write `.raw.md` / `.out.md` / `.rtl.md`. Refused for `forward` and when an output would overwrite an input |
+| `WINDOW_SIZE` | `"1000x720"` | - | start size of the batch window |
+
+Batch uses the constants of the three scripts, not the checkboxes of an open
+window. Importing any module opens nothing.
+
+</details>
+
+<details>
+<summary>md_menu.cmd - what each option does</summary>
+
+- Options 1-5 run `start pythonw` on the matching `.py` file in the same folder.
+- Option 6 runs `md_menu_tools.py set-css`: it accepts only an absolute path to
+  an existing `.css` file or an `http(s)://` / `file://` URL, rewrites the one
+  `CSS_HREF =` line in `md_color_gui.py`, and keeps the old copy as `md_color_gui.py.bak`.
+- Option 7 runs `md_menu_tools.py shortcut`: one desktop `.lnk` to the menu, nothing else.
+- Neither option touches a file outside this folder or the network.
+- No window opens? Python is not on `PATH`. Change `pythonw` to `python` on the
+  launch lines and the error is shown instead of hidden.
+
+</details>
+
+<details>
+<summary>Known limitations</summary>
+
+- **Round trip.** Reverse gives back every content line in the same order. The
+  one thing it can change is the blank line after a fold close: the RTL pass
+  keeps exactly one blank between blocks, so `!^` can end up glued to the next
+  block. The markers still work. `examples/measure.py` reports this as a warning.
+- **Replacing the original** sends the old file to the Windows Recycle Bin. Some
+  locations have no Recycle Bin for a given file (USB sticks, network shares, very
+  large files) and Windows deletes it permanently. Keep **Replace original** off in
+  those places, or pass `--new`, so the result is written beside the input.
+- Outside Windows there is no Recycle Bin, so each replace leaves a backup:
+  `notes.md.bak`, then `notes.md.bak.2`, and so on. Backups are never
+  overwritten, so clear them out yourself. `*.bak` is gitignored.
+- `RTL_PATTERN` includes Persian digits `U+06F0-U+06F9` (they sit in the Arabic
+  block), so one stray Persian digit in an English paragraph forces that block
+  RTL. The style rules forbid Persian digits for this reason.
+- Text inside a `^!` fold is left raw, so the RTL pass does not wrap it. The
+  fold also forces left-to-right on the assumption that it holds code. To fold
+  prose, remove the `<div dir="ltr">` line and its `</div>` in `md_color_gui.py`.
+  See [`docs/SPEC.md`](docs/SPEC.md) section 5.
+- The default title of a fold with no title is Persian (`DEFAULT_SUMMARY`).
+  Change it in `md_color_gui.py` and `md_reverse_gui.py` together.
+- The tool is marker-based, not a full Markdown parser. It does not understand
+  nested lists inside folds or setext headings.
+- The unclosed-tag scan skips code fences but not inline code. A literal
+  `<div>` inside backticks in prose counts as an open tag. Write it without the
+  angle bracket.
+
+</details>
+
+<details>
+<summary>Tests and CI</summary>
+
+```bash
+python -m pytest                  # or: python tests/test_md_batch.py
+```
+
+37 tests, standard library `unittest` cases that pytest also collects. No
+downloads and no network; the suite builds its own scratch files and mocks the
+Recycle Bin call. Every push to `main` runs it on Windows (Python 3.10 and
+3.14) and on Ubuntu - see [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+
+`examples/after.md` is generated, never edited by hand. To regenerate it:
+
+```bash
+cp examples/before.md examples/after.md
+python md_batch.py forward examples/after.md
+```
+
+Then set its stylesheet `href` to `../md.css`; the tool writes an absolute path
+that only works on your machine.
+
+</details>
+
+<details>
+<summary>Project layout</summary>
 
 ```
 md_batch.py            headless CLI and batch engine (main entry point)
-md_menu.cmd            Windows number menu that opens any window
-md_menu_tools.py       menu options 6 and 7: set CSS_HREF, desktop shortcut
 md_batch_gui.py        Tkinter window over the same engine
 md_color_gui.py        markers -> HTML spans, details, gloss colors
 md_rtl_advance_gui.py  RTL wrapping, smart mode, unclosed-tag detection
 md_reverse_gui.py      HTML -> markers, removes RTL wrappers and link line
+md_menu.cmd            Windows number menu that opens any window
+md_menu_tools.py       menu options 6 and 7: set CSS_HREF, desktop shortcut
+md_batch_ai.md         compact CLI/API reference written for AI agents
 md.css                 default stylesheet
 docs/SPEC.md           marker grammar, generated HTML, round-trip contract
 docs/MY_STYLE.md       one complete example style preset
 examples/before.md     sample note as raw markers
 examples/after.md      the same note after color + RTL
-examples/measure.py    reproduces the token numbers and checks the round trip
-examples/img/            screenshots of the rendered example
-md_batch_ai.md         compact CLI/API reference written for AI agents
+examples/measure.py    reproduces the numbers and checks the round trip
+examples/img/          screenshots of the rendered example
 tests/test_md_batch.py unittest suite, no external fixtures
 pytest.ini             points pytest at tests/
 .github/workflows/     CI: Windows and Ubuntu run the suite on every push
 ```
 
----
-
-## Known limitations
-
-- Outside Windows there is no Recycle Bin, so each replace leaves one backup
-  behind: `notes.md.bak`, then `notes.md.bak.2`, and so on. Backups are never
-  overwritten, which means repeated runs accumulate files - clear them out when
-  you no longer need them. `*.bak` is gitignored.
-- `SMART_RTL` decides what to wrap using `RTL_RE`, which by default covers
-  Hebrew, Arabic (so Persian and Urdu included), the Arabic supplement and
-  extended blocks, and both Arabic presentation-forms blocks. Edit that one
-  pattern for any other RTL script. Left-to-right scripts must stay **out** of
-  it - adding CJK or Latin would wrap LTR text in an RTL div and break the
-  layout. Note that the Arabic block also contains Persian digits
-  `U+06F0-U+06F9`, so a stray Persian digit inside an English paragraph forces
-  that whole block RTL; the style rules forbid Persian digits for exactly this
-  reason.
-- Content inside a `^!` fold block is left raw, so RTL text there will not be
-  right-aligned by the RTL pass. The generated block also forces LTR on the
-  assumption that folded content is code; if you fold prose instead, remove that
-  one div in `md_color_gui.py` (and its end tag) - see
-  [`docs/SPEC.md`](docs/SPEC.md) section 5.
-- The default summary of a titleless fold is Persian (`DEFAULT_SUMMARY`). Change
-  it in `md_color_gui.py` and `md_reverse_gui.py` together.
-- The tool is deliberately marker-based, not a general Markdown parser. It does
-  not understand nested lists inside fold blocks or setext headings.
-- `reverse` can lose the blank line that followed a fold close, so `!^` ends up
-  glued to the next block in the raw file. The markers still work: the RTL pass
-  normalizes block spacing to exactly one blank line, which leaves `reverse` no
-  spare blank to hand back. `examples/measure.py` reports this as a warning
-  rather than hiding it.
-- The unclosed-tag scan skips code fences but not inline code. A literal `<div>`
-  written inside backticks in prose counts as a real open tag, so the run warns
-  and emits an empty, greppable tag pair. Write it without the angle bracket.
-
----
-
-## Roadmap
-
-Next steps, in order:
-
-- [x] `examples/` - a before/after sample plus the measurement script behind the
-      token numbers above
-- [x] rendered screenshots of `examples/after.md` under the Example section
-- [x] `RTL_RE` - right-to-left detection is now a documented top-of-file
-      config, widened from Arabic-only to Hebrew plus every Arabic block
-- [x] non-Windows fallback for replacing originals - the old copy becomes a
-      unique `<name>.bak` and the run reports it as a warning
-- [x] `docs/SPEC.md` - the marker grammar, split out from any personal style
-- [x] present `rules.md` as one example preset under `docs/` - now
-      `docs/MY_STYLE.md`
-- [x] `pytest` layout and CI on Windows plus Ubuntu
-
----
+</details>
 
 ## License
 
