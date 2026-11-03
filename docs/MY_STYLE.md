@@ -1,6 +1,11 @@
 # Rules for study notes (Markdown) and code comments
 
-This file is one example style preset for md-note-toolkit: it tells an AI how to write a study note. In this file, "I", "me" and "my" always mean the user who owns the note, never the AI. The marker syntax (`^^`, `!!`, `^!` / `!^`, superscript glosses) is fixed by the tool and described in `SPEC.md`; everything else here is a personal choice you can rewrite. Give this file together with `SPEC.md` to the AI. Where the two disagree: this file decides content, structure and wording, `SPEC.md` decides the marker grammar and what the tool generates, because it mirrors the code.
+VARS: the ALL-CAPS names below are variables. Wherever one appears in backticks in this file, read it as its value here. They exist only for reading this file; never write them into a note.
+LINKS == [MY_STYLE](MY_STYLE.md), [SPEC](SPEC.md), [README](../README.md), [md_batch_ai](../md_batch_ai.md)
+SPEC == SPEC.md
+TOC_DEFAULT == important
+
+This file is one example style preset for md-note-toolkit: it tells an AI how to write a study note. In this file, "I", "me" and "my" always mean the user who owns the note, never the AI. The marker syntax (`^^`, `!!`, `^!` / `!^`, superscript glosses) is fixed by the tool and described in `SPEC`; everything else here is a personal choice you can rewrite. Give this file together with `SPEC` to the AI. Where the two disagree: this file decides content, structure and wording, `SPEC` decides the marker grammar and what the tool generates, because it mirrors the code.
 
 ## Priorities
 
@@ -70,7 +75,7 @@ Keep the English phrase and mark only the hard phrase with a sequential superscr
 
 #### Chain and back-reference tokens (one term, several sections)
 
-A term that comes back in later sections does not need its explanation repeated. The token then carries a separator and a second digit. There are two separators and the digits mean something different in each. Both forms are still one token, one colored span, and the space rules do not change. The tool treats every form as an ordinary gloss token (a superscript followed by non-space characters, see `SPEC.md` section 2.3) and only colors it: the meaning of the compound forms is a convention of this file.
+A term that comes back in later sections does not need its explanation repeated. The token then carries a separator and a second digit. There are two separators and the digits mean something different in each. Both forms are still one token, one colored span, and the space rules do not change. The tool treats every form as an ordinary gloss token (a superscript followed by non-space characters, see `SPEC` section 2.3) and only colors it: the meaning of the compound forms is a convention of this file.
 
 Preference, in this order, and every step needs a reason:
 
@@ -238,9 +243,9 @@ Section order (soft): TOC → topic preview (not a heading, see B) → Setup →
 
 ## TOC
 
-This section is personalized: its default below fits the workspace where I read my notes, and another reader of this ruleset may need another mode. So an AI that receives this ruleset says at the beginning that the TOC is personalized here, and asks once, before writing the first note, which mode to use in this context; the answer holds until I change it. The modes:
+This section is personalized: its default is `TOC_DEFAULT`, and another reader of this ruleset may need another mode. So an AI that receives this ruleset says at the beginning that the TOC is personalized here, and asks once, before writing the first note, which mode to use in this context; the answer holds until I change it, and `TOC_DEFAULT` applies when I do not choose. The modes:
 
-- `empty` (the default in my workspace): write only the `## TOC (فهرست)` heading and leave the body empty. The list is mine, not the AI's: the Markdown All in One extension in my VS Code (`toc.levels` = 1..2) creates and refreshes it with a shortcut. An empty body is intended - not a bug, not a forgotten step - so the AI never writes or edits the list, also not after renaming a heading.
+- `empty`: write only the `## TOC (فهرست)` heading and leave the body empty. The list is mine, not the AI's: the Markdown All in One extension in my VS Code (`toc.levels` = 1..2) creates and refreshes it with a shortcut. An empty body is intended - not a bug, not a forgotten step - so the AI never writes or edits the list, also not after renaming a heading.
 - `important`: one short list at the top with the important top-level `##` sections only (10 headings, 6 important → list those 6).
 - `full`: every top-level `##` section.
 
@@ -277,7 +282,7 @@ There is no quota in either direction: one line may carry five marks, and ten li
 
 ## Hand-colored notes (keep my classes)
 
-The AI writes only `^^` and `!!`; it never writes a class. I recolor by hand afterwards: I change a span's class in the styled note. The risk: running `reverse` and the color stage again maps every unknown class back to `^^` or `!!` (see `SPEC.md` section 4), so a hand color is lost. The AI protects my colors like this:
+The AI writes only `^^` and `!!`; it never writes a class. I recolor by hand afterwards: I change a span's class in the styled note. The risk: running `reverse` and the color stage again maps every unknown class back to `^^` or `!!` (see `SPEC` section 4), so a hand color is lost. The AI protects my colors like this:
 
 - Prefer not to reprocess at all. A small change (one line, one color) goes straight into the styled note: no reverse, no reprocess, wrapper lines untouched.
 - If the note must go through reverse and the color stage again, check first whether the note is inside a git repository.

@@ -1,12 +1,18 @@
 # Note marker specification
 
+VARS: the ALL-CAPS names below are variables. Wherever one appears in backticks in this file, read it as its value here. They exist only for reading this file; never write them into a note.
+LINKS == [MY_STYLE](MY_STYLE.md), [SPEC](SPEC.md), [README](../README.md), [md_batch_ai](../md_batch_ai.md)
+STYLE == docs/MY_STYLE.md
+README == ../README.md
+BATCH == ../md_batch_ai.md
+
 This is the authoring spec for notes processed by this toolkit. It defines the
 marker grammar, what the tool generates, and the contract the round trip relies
 on. It is deliberately language-agnostic: nothing here assumes Persian, and
 every rule that depends on your language is listed in section 7.
 
 Hand this file to an AI along with your own style rules and it can write
-conforming notes. [`docs/MY_STYLE.md`](MY_STYLE.md) is one complete worked example of
+conforming notes. `STYLE` is one complete worked example of
 such a style - a preset, not a requirement.
 
 ---
@@ -119,7 +125,7 @@ punctuation written without it becomes part of the token. Both spaces stay
   characters is a single token, so forms such as `¹^¹` or `¹ᵛ¹` are colored
   exactly like `¹`. The tool does not interpret them: any meaning (a
   back-reference, a chain) is a convention of your style file, see
-  [`MY_STYLE.md`](MY_STYLE.md). Keep the surrounding spaces as for any token.
+  `STYLE`. Keep the surrounding spaces as for any token.
 
 ### 2.4 Contexts that are never processed
 
@@ -235,12 +241,12 @@ system:
 | different colors | `md.css`, plus `RULES` in `md_reverse_gui.py` so the round trip still closes |
 | different head line | `HEAD_PATTERN` |
 | your own summary text | `DEFAULT_SUMMARY` in both files, kept equal |
-| section vocabulary, caps, table rules | your style file - see [`docs/MY_STYLE.md`](MY_STYLE.md) for the shape of one |
+| section vocabulary, caps, table rules | your style file - see `STYLE` for the shape of one |
 
 ---
 
 ## See also
 
-- [`README.md`](../README.md) - install, quick start, measured token savings
-- [`md_batch_ai.md`](../md_batch_ai.md) - compact CLI and API reference for AI agents
-- [`docs/MY_STYLE.md`](MY_STYLE.md) - one complete example style built on this spec
+- `README` - install, quick start, measured token savings
+- `BATCH` - compact CLI and API reference for AI agents
+- `STYLE` - one complete example style built on this spec
