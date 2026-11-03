@@ -115,6 +115,11 @@ punctuation written without it becomes part of the token. Both spaces stay
   re-running the color stage is safe.
 - Set `FOOT_ENABLED = False`, or empty both classes, to switch the feature off;
   the tokens then stay plain text.
+- **Compound tokens are one token.** A superscript followed by any non-space
+  characters is a single token, so forms such as `¹^¹` or `¹ᵛ¹` are colored
+  exactly like `¹`. The tool does not interpret them: any meaning (a
+  back-reference, a chain) is a convention of your style file, see
+  [`MY_STYLE.md`](MY_STYLE.md). Keep the surrounding spaces as for any token.
 
 ### 2.4 Contexts that are never processed
 
@@ -163,6 +168,12 @@ vocabulary risks being stripped or double-wrapped. Write markers only.
 fallback. A custom class starting with `h` comes back as `!!`; anything else
 comes back as `^^`. If you add your own color classes to the stylesheet, extend
 `RULES` so the round trip stays closed.
+
+A class changed by hand in layer 3 is therefore lost on a full reprocess
+(`reverse`, then the color stage): it returns as the default class. To keep it,
+compare with version control after reprocessing, or save the hand-colored spans
+to a temporary list before `reverse` and re-apply only their classes afterwards.
+A one-line change can be made directly in layer 3 without reprocessing.
 
 ---
 
