@@ -11,6 +11,11 @@ from md_recycle import to_recycle_bin
 HTML_TAGS = ("details", "pre", "table", "div", "script", "style")
 OPEN_RE = re.compile(r"<(?:%s)\b" % "|".join(HTML_TAGS), re.I)
 CLOSE_RE = re.compile(r"</(?:%s)\s*>" % "|".join(HTML_TAGS), re.I)
+# A collapsible block written as HTML by the color stage, its title line, and
+# the LTR baseline the color stage puts inside it.
+DETAILS_RE = re.compile(r"<details\b", re.I)
+SUMMARY_RE = re.compile(r"<summary\b", re.I)
+DIV_LTR_RE = re.compile(r'<div\s+dir="ltr"\s*>', re.I)
 
 HANDLE_HTML = True
 
@@ -28,6 +33,13 @@ HEAD_PATTERN = r'^\s*<link\s+rel="stylesheet"'
 # Open marker may carry a short title on the same line; close marker stands alone.
 FOLD_OPEN = ("^!",)  # e.g. "^!" or "^! My title"
 FOLD_CLOSE = ("!^",)  # e.g. "!^"
+
+# True -> a fold body is processed like the rest of the file: RTL text groups
+# get <div dir="rtl">, code fences and raw HTML stay untouched. The <div
+# dir="ltr"> the color stage writes inside a fold is a direction baseline, not
+# an opaque block, so the pass runs inside it too. False -> the whole fold
+# passes through raw (old behaviour).
+FOLD_BODY = True
 
 # True -> only blank-line-separated groups holding right-to-left text get
 # wrapped. False -> old behaviour: every text group is wrapped.
@@ -202,6 +214,162 @@ def find_unclosed(lines, handle_html, fold_open, fold_close):
     return unclosed
 
 
+def find_fold_close(lines, start, fold_open, fold_close):
+    # Index of the line closing the marker fold opened at `start`, or None.
+    # Nested folds are counted and code fences are skipped, so a close marker
+    # sitting inside a fence cannot end the block.
+    depth, fence = 0, False
+    for i in range(start, len(lines)):
+        s = lines[i].strip()
+        if s.startswith("```"):
+            fence = not fence
+        elif not fence:
+            if fold_open and s.startswith(fold_open):
+                depth += 1
+            elif s in fold_close:
+                depth -= 1
+                if depth == 0:
+                    return i
+    return None
+
+
+def find_tag_close(lines, start, name):
+    # Index of the line closing the HTML tag opened at `start`, or None.
+    open_re = re.compile(rf"<{name}\b", re.I)
+    close_re = re.compile(rf"</{name}\s*>", re.I)
+    depth, fence = 0, False
+    for i in range(start, len(lines)):
+        s = lines[i].strip()
+        if s.startswith("```"):
+            fence = not fence
+        elif not fence:
+            depth += len(open_re.findall(lines[i])) - len(close_re.findall(lines[i]))
+            if depth <= 0:
+                return i
+    return None
+
+
+def flush_keep_blanks(text_lines, output, smart, levels, exclude, rtl_re):
+    # Inside a fold the blank lines are structural: the reverse tool matches
+    # them. An all-blank run is copied instead of being normalised away.
+    if text_lines and not has_text(text_lines):
+        output.extend(text_lines)
+    else:
+        flush(text_lines, output, smart, levels, exclude, rtl_re)
+
+
+def wrap_lines(lines, smart, levels, exclude, rtl_re, handle_html, autoclose,
+               fold_open, fold_close, fold_body, in_fold=False):
+    # The wrapping state machine, reused for the whole file and for every fold
+    # body. Returns (output lines, stats); stats carries the unclosed-tag count,
+    # the HTML depth left open and the unclosed-fold flag so the caller reports
+    # them once for the whole file.
+    unclosed = find_unclosed(lines, handle_html, fold_open, fold_close)
+    stats = {"unclosed": sum(len(v) for v in unclosed.values()), "depth": 0, "fold": False}
+    out, text = [], []
+    inside_code, html_depth = False, 0
+    inside_fold = False  # fold_body off: the whole block stays raw, as before
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        s = line.strip()
+        if inside_fold:
+            out.append(line)
+            if s in fold_close:
+                inside_fold = False
+            i += 1
+            continue
+        if s.startswith("```"):  # fence (open or close)
+            flush_keep_blanks(text, out, smart, levels, exclude, rtl_re)
+            text = []
+            inside_code = not inside_code
+            out.append(line)
+            i += 1
+            continue
+        if inside_code:  # must come before the HTML check
+            out.append(line)
+            i += 1
+            continue
+        end = None
+        if not html_depth:
+            if fold_body and fold_open and s.startswith(fold_open):
+                end = find_fold_close(lines, i, fold_open, fold_close)
+                if end is None:  # no close marker: the rest stays raw
+                    flush_keep_blanks(text, out, smart, levels, exclude, rtl_re)
+                    out.append(line)
+                    out.extend(lines[i + 1:])
+                    stats["fold"] = True
+                    return out, stats
+            elif fold_body and handle_html and DETAILS_RE.match(s):
+                end = find_tag_close(lines, i, "details")
+                # None -> falls through to the HTML branch, raw and auto-closed
+            elif in_fold and handle_html and DIV_LTR_RE.match(s):
+                end = find_tag_close(lines, i, "div")
+        if end is not None:
+            flush_keep_blanks(text, out, smart, levels, exclude, rtl_re)
+            text = []
+            body = lines[i + 1:end]
+            lead = 0
+            while lead < len(body) and not body[lead].strip():
+                lead += 1
+            tail = len(body)
+            while tail > lead and not body[tail - 1].strip():
+                tail -= 1
+            inner, inner_stats = wrap_lines(
+                body[lead:tail], smart, levels, exclude, rtl_re, handle_html,
+                autoclose, fold_open, fold_close, fold_body, True,
+            )
+            out.append(line)
+            out.extend(body[:lead])
+            if tail < len(body) and inner and inner[-1] == "":
+                inner = inner[:-1]  # the structural blank already separates
+            out.extend(inner)
+            out.extend(body[tail:])
+            out.append(lines[end])
+            stats["unclosed"] += inner_stats["unclosed"]
+            stats["depth"] += inner_stats["depth"]
+            stats["fold"] = stats["fold"] or inner_stats["fold"]
+            i = end + 1
+            continue
+        if handle_html and (
+            html_depth > 0 or (s.startswith("<") and OPEN_RE.match(s))
+        ):
+            flush_keep_blanks(text, out, smart, levels, exclude, rtl_re)
+            text = []
+            html_depth += len(OPEN_RE.findall(line)) - len(CLOSE_RE.findall(line))
+            html_depth = max(html_depth, 0)
+            out.append(line)
+            if autoclose:
+                # empty tag right after the open one: searchable failure marker
+                for name in reversed(unclosed.get(i, ())):
+                    out.append(f"</{name}>")
+                    html_depth = max(html_depth - 1, 0)
+            i += 1
+            continue
+        if in_fold and SUMMARY_RE.match(s):
+            # the title line is never text: wrapping it would break the exact
+            # header the reverse tool matches
+            flush_keep_blanks(text, out, smart, levels, exclude, rtl_re)
+            text = []
+            out.append(line)
+            i += 1
+            continue
+        if s in fold_close or (fold_open and s.startswith(fold_open)):
+            flush_keep_blanks(text, out, smart, levels, exclude, rtl_re)
+            text = []
+            out.append(line)
+            inside_fold = True
+            i += 1
+            continue
+        text.append(line)
+        i += 1
+
+    flush_keep_blanks(text, out, smart, levels, exclude, rtl_re)
+    stats["depth"] = html_depth
+    stats["fold"] = stats["fold"] or inside_fold
+    return out, stats
+
+
 def process_file(
     path,
     log=None,
@@ -213,6 +381,7 @@ def process_file(
     autoclose=None,
     heading_levels=None,
     rtl_pattern=None,
+    fold_body=None,
 ):
     # Reads `path`, applies the RTL wrapping and RETURNS (text, warnings).
     # text is the whole result in the SOURCE file's line ending (LF or CRLF),
@@ -230,6 +399,7 @@ def process_file(
     autoclose = AUTOCLOSE_HTML if autoclose is None else autoclose
     heading_levels = HEADING_LEVELS if heading_levels is None else heading_levels
     rtl_pattern = RTL_PATTERN if rtl_pattern is None else rtl_pattern
+    fold_body = FOLD_BODY if fold_body is None else fold_body
     exclude, levels = parse_levels(heading_levels)
     # Empty value disables the feature
     fold_open = tuple(fold_open) if fold_open else ()
@@ -278,58 +448,16 @@ def process_file(
         log("Already fixed. Nothing to do.")
         return None, warnings
 
-    unclosed = find_unclosed(lines, handle_html, fold_open, fold_close)
-
-    output = []
-    text_lines = []
-    inside_code = False
-    inside_fold = False  # whole fold block stays raw, like a code block
-    html_depth = 0  # number nesting level of open HTML blocks
-
-    for idx, line in enumerate(lines):
-        stripped = line.strip()
-        if inside_fold:  # raw until the close marker, nothing is wrapped
-            output.append(line)
-            if stripped in fold_close:
-                inside_fold = False
-            continue
-        if stripped.startswith("```"):  # fence (open or close)
-            flush(text_lines, output, smart, levels, exclude, rtl_re)
-            text_lines = []
-            inside_code = not inside_code
-            output.append(line)
-        elif inside_code:  # must come before the HTML check
-            output.append(line)
-        elif handle_html and (
-            html_depth > 0 or (stripped.startswith("<") and OPEN_RE.match(stripped))
-        ):
-            flush(text_lines, output, smart, levels, exclude, rtl_re)
-            text_lines = []
-            html_depth += len(OPEN_RE.findall(line)) - len(CLOSE_RE.findall(line))
-            html_depth = max(html_depth, 0)
-            output.append(line)
-            if autoclose:
-                # empty tag right after the open one: searchable failure marker
-                for name in reversed(unclosed.get(idx, ())):
-                    output.append(f"</{name}>")
-                    html_depth = max(html_depth - 1, 0)
-        elif stripped in fold_close or stripped.startswith(fold_open):
-            # fold open: pass raw and switch to raw mode until the close marker
-            flush(text_lines, output, smart, levels, exclude, rtl_re)
-            text_lines = []
-            output.append(line)
-            inside_fold = True
-        else:
-            text_lines.append(line)
-
-    flush(text_lines, output, smart, levels, exclude, rtl_re)
-    if html_depth > 0:
-        warnings.append(f"Unclosed HTML block (depth = {html_depth}).")
-    if unclosed:
-        total = sum(len(v) for v in unclosed.values())
+    output, stats = wrap_lines(
+        lines, smart, levels, exclude, rtl_re, handle_html, autoclose,
+        fold_open, fold_close, fold_body,
+    )
+    if stats["depth"] > 0:
+        warnings.append(f"Unclosed HTML block (depth = {stats['depth']}).")
+    if stats["unclosed"]:
         tail = " Auto-closed with an empty tag." if autoclose else ""
-        warnings.append(f"{total} unclosed HTML tag(s) found.{tail}")
-    if inside_fold:
+        warnings.append(f"{stats['unclosed']} unclosed HTML tag(s) found.{tail}")
+    if stats["fold"]:
         warnings.append("Unclosed fold block (no close marker found).")
 
     output = head + output
@@ -381,6 +509,7 @@ def main():
     head_var = tk.StringVar(value=HEAD_PATTERN)
     fold_open_var = tk.StringVar(value=", ".join(FOLD_OPEN))
     fold_close_var = tk.StringVar(value=", ".join(FOLD_CLOSE))
+    fold_body_var = tk.BooleanVar(value=FOLD_BODY)
     heading_var = tk.StringVar(value=HEADING_LEVELS)
     rtl_var = tk.StringVar(value=RTL_PATTERN)
     replace_var = tk.BooleanVar(value=REPLACE_ORIGINAL)
@@ -490,6 +619,7 @@ def main():
                 head_pattern=head_var.get().strip(),
                 fold_open=parse_markers(fold_open_var.get()),
                 fold_close=parse_markers(fold_close_var.get()),
+                fold_body=fold_body_var.get(),
                 heading_levels=heading_var.get().strip(),
                 rtl_pattern=rtl_var.get().strip(),
             )
@@ -523,6 +653,9 @@ def main():
     ttk.Checkbutton(
         settings, text="بستن خودکار تگ بی‌بسته (قابل جست‌وجو)", variable=autoclose_var
     ).grid(row=1, column=0, sticky="w", padx=(0, 6), pady=(0, 8))
+    ttk.Checkbutton(
+        settings, text="پردازش بدنه‌ی بلوک تاشو (کد خام می‌ماند)", variable=fold_body_var
+    ).grid(row=1, column=1, sticky="w", padx=(6, 0), pady=(0, 8))
 
     # ردیف 2: دکمه‌ی باز و بسته کردن الگوها. این فیلدها سطح‌بالایی‌اند و کاربر عادی
     # هیچ‌وقت آن‌ها را تغییر نمی‌دهد، پس پیش‌فرض بسته‌اند تا فرم کوتاه بماند.

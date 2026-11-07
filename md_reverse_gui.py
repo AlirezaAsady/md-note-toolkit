@@ -43,11 +43,13 @@ HOLD_RE = re.compile(r"\x00(\d+)\x00")  # placeholder for hidden code
 # innermost span only: its content must not contain another <span
 SPAN_RE = re.compile(r'<span\s+class\s*=\s*"([^"]*)"\s*>((?:(?!<span\b).)+?)</span>')
 FOOT_RE = re.compile(rf"[{re.escape(FOOT_OPEN)}][^\s\x00]*" if FOOT_OPEN else r"(?!)")
-SUMMARY_RE = re.compile(r"^<summary>(.*)</summary>$")
+# The title line and its parent are recognised by tag, not by one fixed
+# spelling: an English title may carry a manual dir="ltr" on either of them.
+SUMMARY_RE = re.compile(r"^<summary(?:\s[^>]*)?>(.*)</summary>$", re.I)
 LINK_RE = re.compile(r"^\s*<link\b[^>]*>\s*$", re.I)
 DIV_RTL = '<div dir="rtl">'
-DIV_LTR = '<div dir="ltr">'
-DETAILS_OPEN = '<details dir="rtl">'
+DETAILS_OPEN_RE = re.compile(r"^<details(?:\s[^>]*)?>$", re.I)
+DIV_LTR_RE = re.compile(r'^<div\s+dir="ltr"\s*>$', re.I)
 
 
 def parse_rules(text):
@@ -144,16 +146,14 @@ def colors_back(lines, rules, warnings):
             i += 1
             continue
         s = line.strip()
-        if s.startswith("<details"):
-            # must be exactly the 5 lines md_color_gui.py writes
-            sm = SUMMARY_RE.match(lines[i + 1].strip()) if i + 1 < len(lines) else None
-            if (
-                s == DETAILS_OPEN
-                and sm
-                and blank(lines, i + 2)
-                and is_at(lines, i + 3, DIV_LTR)
-                and blank(lines, i + 4)
-            ):
+        if DETAILS_OPEN_RE.match(s):
+            # Recognised by tag, not by one fixed spelling: any dir on the
+            # parent, any attributes on the title, optional LTR baseline div.
+            j = i + 1
+            while j < len(lines) and not lines[j].strip():
+                j += 1
+            sm = SUMMARY_RE.match(lines[j].strip()) if j < len(lines) else None
+            if sm:
                 title = sm.group(1)
                 if not any(is_footnote_span(m, title) for m in SPAN_RE.finditer(title)):
                     title = title.strip()
@@ -162,7 +162,13 @@ def colors_back(lines, rules, warnings):
                 else:
                     out.append("^! " + spans_to_markers(title, rules))
                 depth += 1
-                i += 5
+                i = j + 1
+                while i < len(lines) and not lines[i].strip():
+                    i += 1
+                if i < len(lines) and DIV_LTR_RE.match(lines[i].strip()):
+                    i += 1
+                    while i < len(lines) and not lines[i].strip():
+                        i += 1
                 continue
             warnings.append(
                 f"Line {i + 1}: <details> does not match the expected pattern, left unchanged"
@@ -170,18 +176,28 @@ def colors_back(lines, rules, warnings):
             out.append(line)
             i += 1
             continue
-        # closing lines: blank, </div>, </details>, blank
-        if (
-            depth > 0
-            and blank(lines, i)
-            and is_at(lines, i + 1, "</div>")
-            and is_at(lines, i + 2, "</details>")
-            and blank(lines, i + 3)
-        ):
-            out.append("!^")
-            depth -= 1
-            i += 4
-            continue
+        # closing lines: blank, optional </div>, </details>, blank
+        if depth > 0:
+            if (
+                blank(lines, i)
+                and is_at(lines, i + 1, "</div>")
+                and is_at(lines, i + 2, "</details>")
+                and blank(lines, i + 3)
+            ):
+                out.append("!^")
+                depth -= 1
+                i += 4
+                continue
+            if blank(lines, i) and is_at(lines, i + 1, "</details>"):
+                out.append("!^")
+                depth -= 1
+                i += 2
+                continue
+            if s == "</details>":
+                out.append("!^")
+                depth -= 1
+                i += 1
+                continue
         if HEADING_RE.match(line):  # headings were skipped by the original
             out.append(line)
             i += 1
@@ -248,28 +264,19 @@ def remove_rtl(lines, warnings, levels=None):
     # Step B: <div dir="rtl"> + blank ... blank + </div>  ->  the bare lines
     # levels=None -> unwrap every group; a set -> only groups that hold one lone
     # heading of those levels (anything else stays wrapped)
-    out, in_code, in_fold = [], False, False
+    # Fold bodies are unwrapped too: the RTL stage wraps them since FOLD_BODY.
+    # Code fences stay raw, so a wrapper-looking line inside one is never read.
+    out, in_code = [], False
     i = 0
     while i < len(lines):
         line = lines[i]
         s = line.strip()
-        if in_fold:  # ^! ... !^ blocks were never wrapped
-            out.append(line)
-            if s == "!^":
-                in_fold = False
-            i += 1
-            continue
         if s.startswith("```"):
             in_code = not in_code
             out.append(line)
             i += 1
             continue
         if in_code:
-            out.append(line)
-            i += 1
-            continue
-        if s.startswith("^!"):
-            in_fold = True
             out.append(line)
             i += 1
             continue

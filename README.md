@@ -441,6 +441,7 @@ token is left alone, so running twice is safe.
 | `AUTOCLOSE_HTML` | `True` | checkbox | after an unclosed tag, write an empty, greppable close tag |
 | `HTML_TAGS` | `details, pre, table, div, script, style` | - | block tags that pass through unwrapped |
 | `FOLD_OPEN`, `FOLD_CLOSE` | `^!`, `!^` | fields | fold marker lines, never wrapped |
+| `FOLD_BODY` | `True` | checkbox | on: RTL groups inside a fold body get their own wrapper; code fences and the summary line stay raw. Off: the whole fold passes through raw |
 | `HEAD_PATTERN` | the stylesheet `<link>` | field | first line kept outside every wrapper |
 | `REPLACE_ORIGINAL` | `True` | checkbox | as above; off writes `notes.rtl.md` |
 | `OUT_SUFFIX` | `".rtl.md"` | - | name of the new file when replace is off |
@@ -506,9 +507,10 @@ window. Importing any module opens nothing.
 - `RTL_PATTERN` includes Persian digits `U+06F0-U+06F9` (they sit in the Arabic
   block), so one stray Persian digit in an English paragraph forces that block
   RTL. The style rules forbid Persian digits for this reason.
-- Text inside a `^!` fold is left raw, so the RTL pass does not wrap it. The
-  fold also forces left-to-right on the assumption that it holds code. To fold
-  prose, remove the `<div dir="ltr">` line and its `</div>` in `md_color_gui.py`.
+- A `^!` fold body keeps the color stage's `<div dir="ltr">` as its baseline, so
+  English text and code inside it stay left-to-right. With `FOLD_BODY` on, each
+  RTL group inside gets its own `<div dir="rtl">`, so one fold can hold Persian
+  prose and code together. Turn `FOLD_BODY` off to pass the whole fold through raw.
   See [`docs/SPEC.md`](docs/SPEC.md) section 5.
 - The default title of a fold with no title is Persian (`DEFAULT_SUMMARY`).
   Change it in `md_color_gui.py` and `md_reverse_gui.py` together.
@@ -527,7 +529,7 @@ window. Importing any module opens nothing.
 python -m pytest                  # or: python tests/test_md_batch.py
 ```
 
-37 tests, standard library `unittest` cases that pytest also collects. No
+51 tests, standard library `unittest` cases that pytest also collects. No
 downloads and no network; the suite builds its own scratch files and mocks the
 Recycle Bin call. Every push to `main` runs it on Windows (Python 3.10 and
 3.14) and on Ubuntu - see [`.github/workflows/ci.yml`](.github/workflows/ci.yml).

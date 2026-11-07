@@ -69,7 +69,7 @@ anything: prose, tables, code fences, callouts
 
   <div dir="ltr">
 
-  ...block content, untouched...
+  ...block content; RTL groups get their own <div dir="rtl">...
 
   </div>
   </details>
@@ -79,8 +79,12 @@ anything: prose, tables, code fences, callouts
 - With no title, the summary falls back to `DEFAULT_SUMMARY` in
   `md_color_gui.py`. On `reverse`, a summary equal to that string becomes a bare
   `^!` again. **This default is currently Persian** - see section 5.
-- Everything between the markers passes through raw. The RTL stage does not wrap
-  text inside a fold block, exactly like inside a code fence.
+- The RTL stage processes a fold body like the rest of the file
+  (`FOLD_BODY = True` in `md_rtl_advance_gui.py`): each blank-line group with RTL
+  text gets its own `<div dir="rtl">`, while code fences, raw HTML and the
+  `<summary>` line stay untouched. Nested folds are handled the same way. With
+  `FOLD_BODY = False` everything between the markers passes through raw, exactly
+  like inside a code fence.
 - A missing `!^` is reported as a warning; nothing is closed for you.
 
 ### 2.3 Gloss token
@@ -158,7 +162,8 @@ or `!!` in a heading - put the emphasis in the body.
   inverts with a leading `^` or `-`; parts outside 1-6 are ignored.
 - **HTML blocks pass through.** With `HANDLE_HTML = True`, a line starting with
   an HTML tag opens a raw block that is copied unchanged until the tags balance,
-  so hand-written HTML in the source survives.
+  so hand-written HTML in the source survives. The one exception is a
+  `<details>` fold while `FOLD_BODY` is on: its body is processed as in 2.2.
 
 ---
 
@@ -192,11 +197,11 @@ line so anyone can change it in place.
    `md_color_gui.py` and `md_reverse_gui.py`). A fold block with no title
    renders that label for every user. Change it in both files and keep them
    equal, or `reverse` stops recognizing a bare `^!`.
-2. **Fold content is forced left-to-right.** The generated `<div dir="ltr">`
-   inside `<details>` assumes the folded content is code, which is the common
-   case for exercise answers. If you fold RTL prose instead, delete that one
-   line in `md_color_gui.py` - the block then inherits the surrounding
-   direction. Nothing else depends on it.
+2. **Fold content starts left-to-right.** The generated `<div dir="ltr">`
+   inside `<details>` is the direction baseline, so English text and code in a
+   fold stay left-to-right. RTL prose is not affected: with `FOLD_BODY` on, the
+   RTL stage wraps each RTL group inside the fold in its own `<div dir="rtl">`,
+   and `reverse` removes those wrappers again.
 3. **An empty `CSS_HREF` still emits `<link rel="stylesheet" href="">`** instead
    of meaning "no stylesheet". Set it to a real path, or delete the line after
    running.
