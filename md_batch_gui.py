@@ -25,7 +25,7 @@ class App:
         root.minsize(720, 580)
         root.columnconfigure(0, weight=1)
         root.rowconfigure(0, weight=3)
-        root.rowconfigure(2, weight=2)
+        root.rowconfigure(3, weight=2)
         root.protocol("WM_DELETE_WINDOW", self.close)
 
         files = ttk.LabelFrame(root, text="File paths — one per line")
@@ -77,8 +77,16 @@ class App:
         self.mode_var.trace_add("write", self.update_output)
         self.new_var.trace_add("write", self.update_output)
 
+        actions = ttk.Frame(root)
+        actions.grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 10))
+        self.status_var = tk.StringVar(value="Ready")
+        ttk.Label(actions, textvariable=self.status_var).pack(side="left")
+        self.run_button = ttk.Button(actions, text="Run batch", command=self.run)
+        self.run_button.pack(side="right")
+        self.controls.append(self.run_button)
+
         logs = ttk.LabelFrame(root, text="Log — warnings and errors are shown per file")
-        logs.grid(row=2, column=0, sticky="nsew", padx=10, pady=(0, 10))
+        logs.grid(row=3, column=0, sticky="nsew", padx=10, pady=(0, 10))
         logs.columnconfigure(0, weight=1)
         logs.rowconfigure(0, weight=1)
         self.log_box = tk.Text(logs, state="disabled", wrap="word", font=("Consolas", 10))
@@ -87,13 +95,6 @@ class App:
         scrollbar.grid(row=0, column=1, sticky="ns")
         self.log_box.config(yscrollcommand=scrollbar.set)
 
-        actions = ttk.Frame(root)
-        actions.grid(row=3, column=0, sticky="ew", padx=10, pady=(0, 10))
-        self.status_var = tk.StringVar(value="Ready")
-        ttk.Label(actions, textvariable=self.status_var).pack(side="left")
-        self.run_button = ttk.Button(actions, text="Run batch", command=self.run)
-        self.run_button.pack(side="right")
-        self.controls.append(self.run_button)
         self.update_output()
 
     def update_output(self, *_):
