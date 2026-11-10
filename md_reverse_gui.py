@@ -2,6 +2,7 @@
 """GUI tool: the reverse of md_rtl_advance_gui.py + md_color_gui.py (Windows, stdlib only).
 
 Step A (option "Color"): <span class="..."> -> ^^x^^ / !!x!!   and   <details> block -> ^! ... !^
+           and the bidi marker: <bdi>X</bdi> -> "@@ X @@"
 Step B (option "RTL" or "headings only"): removes the <div dir="rtl"> wrappers
 Step C (option): removes a <link ...> on the first line
 
@@ -50,6 +51,11 @@ LINK_RE = re.compile(r"^\s*<link\b[^>]*>\s*$", re.I)
 DIV_RTL = '<div dir="rtl">'
 DETAILS_OPEN_RE = re.compile(r"^<details(?:\s[^>]*)?>$", re.I)
 DIV_LTR_RE = re.compile(r'^<div\s+dir="ltr"\s*>$', re.I)
+# bidi marker contract: "@@ X @@" <-> <bdi>X</bdi>. Reverse accepts attribute-less
+# <bdi> only, same line only, non-greedy; every other shape warns and stays put.
+BDI_OPEN_RE = re.compile(r"<bdi(\s[^>]*)?>", re.I)
+BDI_CLOSE_RE = re.compile(r"</bdi\s*>", re.I)
+BDI_ANY_RE = re.compile(r"<bdi", re.I)
 
 
 def parse_rules(text):
@@ -113,6 +119,85 @@ def spans_to_markers(line, rules):
     return HOLD_RE.sub(lambda m: held[int(m.group(1))], text)
 
 
+def bdi_to_markers(line, lineno):
+    # <bdi>X</bdi> -> "@@ X @@": exactly one space added on each inner side,
+    # X kept byte-for-byte. Rejected shapes stay unchanged and warn once.
+    # Returns (new line, warnings).
+    warnings = []
+    held = []
+
+    def hide(m):  # inline code is invisible to every check below
+        held.append(m.group(0))
+        return f"\x00{len(held) - 1}\x00"
+
+    def warn(msg):
+        warnings.append(f"Line {lineno}: {msg}, left unchanged")
+
+    text = CODE_RE.sub(hide, line)
+    out = []
+    pos = 0
+    while pos < len(text):
+        om = BDI_OPEN_RE.search(text, pos)
+        cm = BDI_CLOSE_RE.search(text, pos)
+        if cm is not None and (om is None or cm.start() < om.start()):
+            warn("stray </bdi> without opening <bdi>")
+            out.append(text[pos : cm.end()])
+            pos = cm.end()
+            continue
+        if om is None:
+            break
+        if om.group(1) is not None:  # any attribute, e.g. dir="ltr"
+            warn("<bdi> with attributes is not mapped")
+            pair = BDI_CLOSE_RE.search(text, om.end())
+            stop = pair.end() if pair else om.end()
+            out.append(text[pos:stop])
+            pos = stop
+            continue
+        cm = BDI_CLOSE_RE.search(text, om.end())
+        if cm is None:
+            warn("<bdi> has no closing </bdi> on the same line")
+            out.append(text[pos : om.end()])
+            pos = om.end()
+            continue
+        inner = text[om.end() : cm.start()]
+        nested = bool(BDI_ANY_RE.search(inner))
+        bad = None
+        if nested:
+            bad = "<bdi> content contains <bdi (nesting)"
+        elif not inner:
+            bad = "<bdi> content is empty"
+        elif "@@" in inner:
+            bad = '<bdi> content contains "@@"'
+        elif "|" in inner:  # inline code is hidden, so this "|" is outside it
+            bad = '<bdi> content contains "|" outside inline code'
+        if bad:
+            warn(bad)
+            stop = cm.end()
+            if nested:  # swallow the whole nest so it warns exactly once
+                depth, scan = 1, om.end()
+                while depth > 0:
+                    o = BDI_OPEN_RE.search(text, scan)
+                    c = BDI_CLOSE_RE.search(text, scan)
+                    if c is None:
+                        break
+                    if o is not None and o.start() < c.start():
+                        depth += 1
+                        scan = o.end()
+                    else:
+                        depth -= 1
+                        scan = c.end()
+                if depth == 0:
+                    stop = scan
+            out.append(text[pos:stop])
+            pos = stop
+            continue
+        out.append(text[pos : om.start()])
+        out.append(f"@@ {inner} @@")
+        pos = cm.end()
+    out.append(text[pos:])
+    return HOLD_RE.sub(lambda m: held[int(m.group(1))], "".join(out)), warnings
+
+
 def blank(lines, k):
     return 0 <= k < len(lines) and not lines[k].strip()
 
@@ -155,6 +240,8 @@ def colors_back(lines, rules, warnings):
             sm = SUMMARY_RE.match(lines[j].strip()) if j < len(lines) else None
             if sm:
                 title = sm.group(1)
+                title, title_warns = bdi_to_markers(title, j + 1)
+                warnings.extend(title_warns)
                 if not any(is_footnote_span(m, title) for m in SPAN_RE.finditer(title)):
                     title = title.strip()
                 if not title or title == DEFAULT_SUMMARY:
@@ -202,7 +289,9 @@ def colors_back(lines, rules, warnings):
             out.append(line)
             i += 1
             continue
-        new = spans_to_markers(line, rules)
+        new, bdi_warns = bdi_to_markers(line, i + 1)  # bidi before spans, so
+        warnings.extend(bdi_warns)  # <bdi><span ...>x</span></bdi> -> @@ !!x!! @@
+        new = spans_to_markers(new, rules)
         if re.search(r"<span\b", CODE_RE.sub("", new)):
             warnings.append(
                 f"Line {i + 1}: <span> with no matching rule, left unchanged"
@@ -559,7 +648,9 @@ class App:
     def do_convert(self):
         rules = parse_rules(self.rules_var.get())
         if not rules[0] and rules[1] is None:
-            self.log("Warning: no valid rules, non-footnote spans will be left unchanged")
+            self.log(
+                "Warning: no valid rules, non-footnote spans will be left unchanged"
+            )
         levels = set()
         if self.head_var.get() and not self.rtl_var.get():
             levels = parse_levels(self.levels_var.get())
@@ -602,7 +693,9 @@ class App:
                 bak = retire_original(src)
                 os.replace(tmp, src)
                 tmp = None
-                self.log(f"Replaced: {src} (original kept in {bak or 'the Recycle Bin'})")
+                self.log(
+                    f"Replaced: {src} (original kept in {bak or 'the Recycle Bin'})"
+                )
             else:
                 dst_s = self.clean(self.out_var.get())
                 if not dst_s:
