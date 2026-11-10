@@ -23,6 +23,11 @@ FOOT_ENABLED = True
 FOOT_INLINE_CLASS = "p s22"
 FOOT_DEF_CLASS = "g s22"
 FOOT_OPEN = "¹²³⁴⁵⁶⁷⁸⁹⁰"
+# Direction marker: "@@ X @@" -> <bdi>X</bdi>. The space right after the
+# opening @@ and right before the closing @@ is required and removed. A pair
+# never spans two lines or two table cells; a broken line is left raw and
+# reported. False -> @@ is left alone everywhere.
+BIDI_ENABLED = True
 
 # Output file suffix used when "Replace original" is OFF: notes.md -> notes.out.md
 OUT_SUFFIX = ".out.md"
@@ -39,6 +44,8 @@ RED_RE = re.compile(r"\^\^(.+?)\^\^")  # non-greedy, single line
 HY_RE = re.compile(r"!!(.+?)!!")
 HOLD_RE = re.compile(r"\x00(\d+)\x00")  # placeholder for hidden code
 LINK_RE = re.compile(r'^\s*<link\s+rel="stylesheet"\s+href="[^"]*"\s*/?>')
+BIDI_TOKEN_RE = re.compile(r"(?<!@)@@(?!@)")  # exactly two @, not part of @@@
+BIDI_ATTR_RE = re.compile(r"<bdi\s[^>]*>", re.I)  # hand-written <bdi> with attributes
 # Protected placeholders must not become part of a footnote token.
 FOOT_TOKEN = rf"[{re.escape(FOOT_OPEN)}][^\s\x00]*?" if FOOT_OPEN else r"(?!)"
 FOOT_WRAPPED_RE = re.compile(rf"(?:^|(?<= ))(\^\^|!!)({FOOT_TOKEN})\1(?= )")
@@ -56,9 +63,51 @@ DETAILS_CLOSE = "!^"
 DEFAULT_SUMMARY = "نمایش جواب"
 
 
-def convert(line, foot_enabled=None):
-    # Returns the converted line, or None if a marker count is odd
+def bidi(text, notes):
+    # "@@ X @@" pairs -> <bdi>X</bdi>; None means the line must stay raw
+    pairs, start, invalid = [], None, False
+    for m in BIDI_TOKEN_RE.finditer(text):
+        before = text[m.start() - 1 : m.start()]
+        after = text[m.end() : m.end() + 1]
+        if start is None:
+            if after == " ":
+                start = m
+            else:
+                invalid = True
+        elif before == " ":
+            pairs.append((start, m))
+            start = None
+        else:
+            notes.append("@@ inside an @@ pair, left unchanged")
+            return None
+    if start is not None:
+        notes.append("unclosed @@ pair, left unchanged")
+        return None
+    out, pos = [], 0
+    for a, b in pairs:
+        inner = text[a.end() + 1 : b.start() - 1]
+        if not inner:
+            notes.append("empty @@ pair, left unchanged")
+            return None
+        if "|" in inner:
+            notes.append("@@ pair crosses a table cell (|), left unchanged")
+            return None
+        out += [text[pos : a.start()], "<bdi>", inner, "</bdi>"]
+        pos = b.end()
+    out.append(text[pos:])
+    if invalid:
+        notes.append("@@ with no inner space is not a marker, left as text")
+    if BIDI_ATTR_RE.search(text):
+        notes.append("<bdi> with attributes is not mapped")
+    return "".join(out)
+
+
+def convert(line, foot_enabled=None, bidi_enabled=None, notes=None):
+    # Returns the converted line, or None if a marker count is odd.
+    # Problems with @@ pairs go to notes and the line comes back unchanged.
     foot_enabled = FOOT_ENABLED if foot_enabled is None else foot_enabled
+    bidi_enabled = BIDI_ENABLED if bidi_enabled is None else bidi_enabled
+    notes = [] if notes is None else notes
     spans = []
 
     def hold(text):
@@ -85,10 +134,14 @@ def convert(line, foot_enabled=None):
         return None
     text = RED_RE.sub(r'<span class="r">\1</span>', text)
     text = HY_RE.sub(r'<span class="hy">\1</span>', text)
+    if bidi_enabled:
+        text = bidi(text, notes)
+        if text is None:
+            return line
     return HOLD_RE.sub(lambda m: spans[int(m.group(1))], text)
 
 
-def process(lines, foot_enabled=None):
+def process(lines, foot_enabled=None, bidi_enabled=None):
     # lines in -> (lines out, warnings)
     out, warnings, fence = [], [], None
     depth = 0  # number of open ^! blocks
@@ -114,7 +167,11 @@ def process(lines, foot_enabled=None):
         m_open = DETAILS_OPEN_RE.match(line.rstrip("\r\n").lstrip())
         if m_open:  # "^! title" -> <details>
             title = m_open.group(1) or DEFAULT_SUMMARY
-            title = convert(title, foot_enabled) or title  # allow ^^ !! in the title
+            notes = []
+            title = (
+                convert(title, foot_enabled, bidi_enabled, notes) or title
+            )  # allow markers in the title
+            warnings += [f"Line {n}: {note}" for note in notes]
             enabled = FOOT_ENABLED if foot_enabled is None else foot_enabled
             if not enabled or not FOOT_SPAN_RE.search(title):
                 title = title.rstrip()
@@ -136,7 +193,9 @@ def process(lines, foot_enabled=None):
         if HEADING_RE.match(line):  # headings are skipped
             out.append(line)
             continue
-        result = convert(line, foot_enabled)
+        notes = []
+        result = convert(line, foot_enabled, bidi_enabled, notes)
+        warnings += [f"Line {n}: {note}" for note in notes]
         if result is None:
             warnings.append(f"Line {n}: odd number of ^^ or !! markers, left unchanged")
             out.append(line)
@@ -220,6 +279,10 @@ class App:
         ttk.Checkbutton(opts, text="Color footnotes (¹)", variable=self.foot_var).pack(
             anchor="w", padx=6, pady=4
         )
+        self.bidi_var = tk.BooleanVar(value=BIDI_ENABLED)
+        ttk.Checkbutton(
+            opts, text="Direction marker (@@ x @@)", variable=self.bidi_var
+        ).pack(anchor="w", padx=6, pady=4)
         self.replace_var = tk.BooleanVar(value=REPLACE_ORIGINAL)
         ttk.Checkbutton(
             opts,
@@ -353,7 +416,9 @@ class App:
     # --- actions
     def do_convert(self):
         text = self.left.get("1.0", "end-1c")
-        result, warnings = process(text.splitlines(keepends=True), self.foot_var.get())
+        result, warnings = process(
+            text.splitlines(keepends=True), self.foot_var.get(), self.bidi_var.get()
+        )
         self.set_text(self.right, "".join(result))
         for w in warnings:
             self.log("Warning: " + w)
@@ -378,7 +443,9 @@ class App:
                 bak = retire_original(src)
                 os.replace(tmp, src)
                 tmp = None
-                self.log(f"Replaced: {src} (original kept in {bak or 'the Recycle Bin'})")
+                self.log(
+                    f"Replaced: {src} (original kept in {bak or 'the Recycle Bin'})"
+                )
             else:
                 dst_s = self.clean(self.out_var.get())
                 if not dst_s:
