@@ -604,11 +604,22 @@ for r in results:
 | `HTML_TAGS` | `details, pre, table, div, script, style` | - | تگ های بلوکی که بدون wrapper رد می شوند |
 | `FOLD_OPEN`, `FOLD_CLOSE` | `^!`, `!^` | fields | خط های مارکرِ تاشو، هیچ وقت wrapper نمی خورند |
 | `FOLD_BODY` | `True` | checkbox | روشن: گروه های RTL داخلِ بدنه ی تاشو wrapper خودشان را می گیرند؛ بلوک های کد و خطِ summary خام می مانند. خاموش: کلِ تاشو خام رد می شود |
+| `RTL_SKIP` | `[("<!-- rtl-off -->", "<!-- /rtl-off -->")]` | فیلد تنظیمات پیشرفته | محتوای جفت بسته از رپر RTL رد می شود؛ `[]` یعنی خاموش |
 | `HEAD_PATTERN` | `<link>` استایلشیت | field | خط اولی که بیرونِ هر wrapper نگه داشته می شود |
 | `REPLACE_ORIGINAL` | `True` | checkbox | مثل بالا؛ حالتِ خاموش `notes.rtl.md` می نویسد |
 | `OUT_SUFFIX` | `".rtl.md"` | - | نام فایل جدید وقتی replace خاموش است |
 
 بلوک ها بر اساس خطِ خالی جدا می شوند، پس هیچ جدول یا فهرستی نصفه بریده نمی شود.
+
+برای رد کردن یک بلوک از رپر، `<!-- rtl-off -->` و `<!-- /rtl-off -->` را در دو خط
+جدا، قبل و بعد از آن قرار دهید. کامنت ها در نمایش دیده نمی شوند. تطابق پس از حذف
+فاصله های ابتدا و انتهای خط دقیق است و جفت ها نباید تودرتو باشند. اگر علامت بسته
+نباشد، هشدار ثبت می شود و محتوای بعد از آن عادی پردازش می شود، نه اینکه تا آخر رد شود.
+این نگهبان فقط مرحله RTL را رد می کند؛ Color و Reverse همچنان اجرا می شوند و خود
+نگهبان هم جهت LTR تحمیل نمی کند. فیلد تنظیمات پیشرفته پنجره RTL قالب
+`open => close, open2 => close2` دارد؛ خالی یعنی خاموش. Batch از `RTL_SKIP` بالای
+اسکریپت استفاده می کند، نه مقدار این فیلد. بخش 2.6 از [`docs/SPEC.md`](docs/SPEC.md)
+را ببینید.
 
 **Reverse - `md_reverse_gui.py`**
 
@@ -676,16 +687,31 @@ import کردن هر ماژول هم هیچ پنجره ای باز نمی کند
 <details>
 <summary>تست ها و CI</summary>
 
+<div dir="rtl">
+
+از پوشه اصلی مخزن اجرا کنید:
+
+</div>
+
 ```bash
-python -m pytest                  # or: python tests/test_md_batch.py
+python -m unittest discover -s tests
+# Alternative, if pytest is installed:
+python -m pytest
 ```
 
 <div dir="rtl">
 
-51 تست، از نوع `unittest` کتابخانه استاندارد که pytest هم جمعشان می کند. بدون دانلود و
-بدون شبکه؛ خودِ سویت فایل های موقتش را می سازد و فراخوانی Recycle Bin را mock می کند. هر
-push به `main` همین سویت را روی ویندوز (پایتون 3.10 و 3.14) و روی اوبونتو اجرا می کند؛
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) را ببینید.
+91 تست، از نوع `unittest` کتابخانه استاندارد که pytest هم جمعشان می کند؛ شامل تست های
+bidi رفت و برگشت و نگهبان RTL. بدون دانلود و بدون شبکه؛ خود سویت فایل های موقتش را
+می سازد و فراخوانی Recycle Bin را mock می کند. تست های GUI به Tk و محیط نمایش نیاز
+دارند. هر push به `main` همین سویت را روی ویندوز (پایتون 3.10 و 3.14) و روی اوبونتو
+اجرا می کند؛ [`.github/workflows/ci.yml`](.github/workflows/ci.yml) را ببینید.
+
+تنظیمات مشترک بالای `tests/test_md_batch.py` قرار دارند: `ROOT`، `RAW`، `CODE`،
+`MODULES`، `MENU_TARGET_NAME`، `SKIP_OPEN` و `SKIP_CLOSE`. مسیر `ROOT` خودکار از محل
+فایل به دست می آید. برای کپی به مخزنی با همین چیدمان و پیش فرض ها نیازی به تغییر
+نیست؛ اگر تنظیمات فرق دارند، همین بخش را بررسی کنید. جفت نگهبان تست باید با
+`RTL_SKIP` سازگار باشد.
 
 `examples/after.md` ساخته می شود، دستی ویرایش نمی شود. برای بازتولیدش:
 
@@ -725,7 +751,9 @@ examples/before.md     sample note as raw markers
 examples/after.md      the same note after color + RTL
 examples/measure.py    reproduces the numbers and checks the round trip
 examples/img/          screenshots of the rendered example
-tests/test_md_batch.py unittest suite, no external fixtures
+tests/test_md_batch.py batch, GUI, menu, fold and RTL skip tests; shared settings
+tests/test_bidi_forward.py forward bidi marker tests
+tests/test_bidi_reverse.py reverse bidi marker tests
 pytest.ini             points pytest at tests/
 .github/workflows/     CI: Windows and Ubuntu run the suite on every push
 ```

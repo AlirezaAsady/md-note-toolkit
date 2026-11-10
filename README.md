@@ -442,11 +442,21 @@ token is left alone, so running twice is safe.
 | `HTML_TAGS` | `details, pre, table, div, script, style` | - | block tags that pass through unwrapped |
 | `FOLD_OPEN`, `FOLD_CLOSE` | `^!`, `!^` | fields | fold marker lines, never wrapped |
 | `FOLD_BODY` | `True` | checkbox | on: RTL groups inside a fold body get their own wrapper; code fences and the summary line stay raw. Off: the whole fold passes through raw |
+| `RTL_SKIP` | `[("<!-- rtl-off -->", "<!-- /rtl-off -->")]` | advanced field | closed pairs bypass RTL wrapping; `[]` disables it |
 | `HEAD_PATTERN` | the stylesheet `<link>` | field | first line kept outside every wrapper |
 | `REPLACE_ORIGINAL` | `True` | checkbox | as above; off writes `notes.rtl.md` |
 | `OUT_SUFFIX` | `".rtl.md"` | - | name of the new file when replace is off |
 
 Blocks are split on blank lines, so a table or a list is never cut in half.
+
+To leave a whole block unwrapped, put `<!-- rtl-off -->` and
+`<!-- /rtl-off -->` on separate lines around it. The comments remain invisible
+in the render. Matching is exact after trimming whitespace; pairs do not nest.
+A missing close warns and following content is processed normally, not skipped.
+This only bypasses the RTL stage, not color or reverse, and does not force LTR.
+The RTL window's advanced field accepts `open => close, open2 => close2`;
+empty means off. Batch uses `RTL_SKIP` from the script instead of that field.
+See [`docs/SPEC.md`](docs/SPEC.md) section 2.6.
 
 **Reverse - `md_reverse_gui.py`**
 
@@ -525,14 +535,25 @@ window. Importing any module opens nothing.
 <details>
 <summary>Tests and CI</summary>
 
+Run from the repository root:
+
 ```bash
-python -m pytest                  # or: python tests/test_md_batch.py
+python -m unittest discover -s tests
+# Alternative, if pytest is installed:
+python -m pytest
 ```
 
-51 tests, standard library `unittest` cases that pytest also collects. No
-downloads and no network; the suite builds its own scratch files and mocks the
-Recycle Bin call. Every push to `main` runs it on Windows (Python 3.10 and
+91 tests, standard library `unittest` cases that pytest also collects, including
+forward/reverse bidi markers and RTL skip guards. No downloads and no network;
+the suite builds its own scratch files and mocks the Recycle Bin call. GUI tests
+need Tk and a display. Every push to `main` runs it on Windows (Python 3.10 and
 3.14) and on Ubuntu - see [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+
+Shared test settings are grouped at the top of `tests/test_md_batch.py`:
+`ROOT`, `RAW`, `CODE`, `MODULES`, `MENU_TARGET_NAME`, `SKIP_OPEN`, `SKIP_CLOSE`.
+`ROOT` is derived from the file location. When copying the suite to another
+checkout with the same layout and defaults, no edits are needed; review that
+block if its settings differ. Keep the skip pair consistent with `RTL_SKIP`.
 
 `examples/after.md` is generated, never edited by hand. To regenerate it:
 
@@ -566,7 +587,9 @@ examples/before.md     sample note as raw markers
 examples/after.md      the same note after color + RTL
 examples/measure.py    reproduces the numbers and checks the round trip
 examples/img/          screenshots of the rendered example
-tests/test_md_batch.py unittest suite, no external fixtures
+tests/test_md_batch.py batch, GUI, menu, fold and RTL skip tests; shared settings
+tests/test_bidi_forward.py forward bidi marker tests
+tests/test_bidi_reverse.py reverse bidi marker tests
 pytest.ini             points pytest at tests/
 .github/workflows/     CI: Windows and Ubuntu run the suite on every push
 ```

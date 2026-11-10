@@ -205,7 +205,8 @@ This is a preference, not a hard rule (code comments in English only is the hard
 - Canonical form is `@@ x @@` with one space on each inner side. Those spaces are part of the marker and are removed, which is what keeps `@@version` from reading as a marker.
 - The pair stays on one line and inside one table cell. A line the tool cannot pair is left raw and reported, so a visible `@@` in the rendered note means fix that line.
 - Never write `<bdi>` by hand in the raw note. A hand-written one with attributes is reported as _not mapped_ and left alone; the attribute-less form is what `reverse` maps back.
-- Tables stay inside `<div dir="rtl">` even when they carry this marker. Wrapping a cell is not a reason to pull a table out of its div.
+- Tables normally stay inside `<div dir="rtl">` even when they carry this marker. Wrapping a cell is not a reason to pull a table out of its div.
+- When a block must explicitly avoid automatic RTL wrapping, put `<!-- rtl-off -->` and `<!-- /rtl-off -->` on separate lines around the whole block. These comments are allowed in raw notes and remain invisible in the render. Do not nest pairs; a missing close warns and leaves the following content subject to normal RTL processing. This bypasses only the RTL stage, not color or reverse; see `SPEC` section 2.6.
 
 ## Headings
 

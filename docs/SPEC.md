@@ -166,6 +166,44 @@ or `!!` in a heading - put the emphasis in the body.
 - Switch: `BIDI_ENABLED` in `md_color_gui.py`, with a checkbox in the GUI.
   `False` leaves every `@@` untouched and silent.
 
+### 2.6 RTL skip guards
+
+Put a closed pair around a whole block that must not receive an automatic RTL
+wrapper, for example a table whose layout you want to leave alone:
+
+```markdown
+<!-- rtl-off -->
+| Function | Result |
+| --- | --- |
+| GETDATE() | Current timestamp |
+<!-- /rtl-off -->
+```
+
+- Each guard occupies its own line. Matching is literal and case-sensitive
+  after stripping leading and trailing whitespace, not a regular expression.
+- The RTL stage copies both guard lines and everything between them unchanged,
+  without wrapping the body or checking its HTML tags for automatic closing.
+  Comment-shaped guards stay invisible in the render; other custom strings may
+  be visible. The default comments also survive `reverse`.
+- This is an **RTL-only** bypass. In `forward`, the color stage still runs first;
+  color markers inside the pair can still become spans. It does not shield
+  content from `reverse`, and it does not force a direction of its own: the
+  block inherits the surrounding renderer's direction.
+- No nesting: the first matching close ends the region. Keep each pair within
+  the same fold body when using it inside a fold. Guards inside a code fence
+  stay literal rather than starting a skip region.
+- An opening guard without a matching close produces an
+  `unclosed RTL skip sentinel` warning. The guard is retained and the following
+  content is processed normally; it does **not** skip the rest of the file.
+- Configure `RTL_SKIP` at the top of `md_rtl_advance_gui.py` as a list of
+  `(open, close)` strings. All listed pairs are active; `[]` disables the feature.
+  In the RTL window's collapsed advanced settings, enter
+  `open => close, open2 => close2`; an empty field disables it for that run.
+  Entries without `=>` or with an empty side are ignored. Avoid commas or `=>`
+  inside names entered through that field.
+- These guard comments are an allowed exception to the raw-note "no HTML"
+  rule. Do not replace them with hand-written direction wrappers.
+
 ---
 
 ## 3. Structure the tool depends on
@@ -238,7 +276,7 @@ line so anyone can change it in place.
 6. **`warned=` in the summary counts files, not warnings.** A file with three
    rejected lines still reports `warned=1`. Every rejection is printed on its own
    line with its number and reason, and grepping the log for `Line ` finds them
-   all. The summary string is asserted by `test_md_batch.py` and means the same
+   all. The summary string is asserted by `tests/test_md_batch.py` and means the same
    thing for every stage, so the detail stays in the log and the count stays a
    count of files to look at.
 
@@ -246,8 +284,9 @@ line so anyone can change it in place.
 
 ## 6. Failure behavior
 
-Nothing is healed silently. Every anomaly produces a greppable marker in the
-output and a line in the log:
+Nothing is healed silently. Check the warnings in the log as well as the
+output: an unclosed RTL skip guard remains an invisible comment, so its warning
+is the signal to repair the pair.
 
 | Situation                               | Result                                                              |
 | --------------------------------------- | ------------------------------------------------------------------- |
@@ -257,6 +296,7 @@ output and a line in the log:
 | `@@` with no inner space                | reported once per line, left as literal text                        |
 | unclosed HTML tag                       | an **empty** closing tag written right after the open one + warning |
 | unclosed `^!` block                     | warning, file still written                                         |
+| unclosed RTL skip guard                 | guard retained + `unclosed RTL skip sentinel` warning; following content processed normally |
 | invalid `RTL_PATTERN` or `HEAD_PATTERN` | warning, falls back to the default, run continues                   |
 | file already processed                  | `Already fixed. Nothing to do.` and no write                        |
 
