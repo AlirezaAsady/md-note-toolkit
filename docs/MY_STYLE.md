@@ -42,9 +42,9 @@ Length: no hard line cap (about 700 lines is fine). If a topic risks token or co
 
 The English text stays the main text. Persian helps the reader understand it; it does not replace it. Depth follows difficulty: an easy point gets nothing, a hard idea gets a real explanation.
 
-| What is hard | Tool |
-|---|---|
-| one word or phrase | footnote gloss with a superscript token |
+| What is hard                              | Tool                                          |
+| ----------------------------------------- | --------------------------------------------- |
+| one word or phrase                        | footnote gloss with a superscript token       |
 | an idea, a reason, a relationship, a trap | Persian `> [!NOTE]` at the end of the section |
 
 ### A. Footnote gloss
@@ -171,11 +171,11 @@ Length follows the number of parts, never the depth of explanation: two lines wh
 
 Example:
 
-````markdown
+```markdown
 > [!NOTE]
 > صفحه بندی یعنی داده ها را در تکه های کوچک تر نشان بدهی نه در یک لیست بلند، چون هم خواندنش برای کاربر راحت تر است و هم هزینه اش برای سرور کمتر.
 > این جزوه دو روش را پوشش می دهد: OFFSET و Keyset.
-````
+```
 
 #### Form
 
@@ -201,6 +201,11 @@ This is a preference, not a hard rule (code comments in English only is the hard
 - Latin inside Persian prose is fine (`از GROUP BY استفاده کن`).
 - Never translate a technical term to satisfy this (`add`, `commit`, `merge`, `stage` stay English even mid-sentence: `دکمه add را بزن`).
 - It matters most in headings, TOC links, table cells and list items; least in prose paragraphs (do not restructure a good sentence).
+- Direction marker `@@ x @@` (converted to `<bdi>x</bdi>`): put it around the **smallest** fragment that has a strong Latin character and a neutral at one of its edges. Never around the first word of a sentence: `<bdi>` only acts between its own two tags.
+- Canonical form is `@@ x @@` with one space on each inner side. Those spaces are part of the marker and are removed, which is what keeps `@@version` from reading as a marker.
+- The pair stays on one line and inside one table cell. A line the tool cannot pair is left raw and reported, so a visible `@@` in the rendered note means fix that line.
+- Never write `<bdi>` by hand in the raw note. A hand-written one with attributes is reported as _not mapped_ and left alone; the attribute-less form is what `reverse` maps back.
+- Tables stay inside `<div dir="rtl">` even when they carry this marker. Wrapping a cell is not a reason to pull a table out of its div.
 
 ## Headings
 
@@ -218,24 +223,24 @@ This is a preference, not a hard rule (code comments in English only is the hard
 
 All numbered `## N.` except TOC.
 
-| Name | Use |
-|---|---|
-| `## TOC (فهرست)` | unnumbered, top of the note |
-| `## 1. Setup (Table 1)` | practice dataset; rename the parenthesis if there is no table |
-| `Intro (مقدمه)` | what the topic is and why it exists |
-| `Syntax` | grammar, clause order |
-| `Examples` | worked examples |
-| `X VS Y` | comparison; always the literal uppercase `VS`, never `و`, `در برابر` or `یا` |
-| `Best Practices` | recommended habits |
-| `Pitfalls (تله ها)` | traps and common mistakes, one section (not three) |
-| `Troubleshooting` | "you hit error X, do Y" (Pitfalls = "do not do this") |
-| `Performance (کارایی)` | speed and cost |
-| `Exercises (تمرین ها)` | see "Exercises" below; rare |
-| `Cleanup (پاک سازی)` | undo the setup |
-| `Cheat Sheet` | code or command table to copy, no gloss |
-| `Summary (خلاصه)` | prose wrap-up, gloss only when needed (a Cheat Sheet is not a Summary) |
+| Name                     | Use                                                                                                      |
+| ------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `## TOC (فهرست)`         | unnumbered, top of the note                                                                              |
+| `## 1. Setup (Table 1)`  | practice dataset; rename the parenthesis if there is no table                                            |
+| `Intro (مقدمه)`          | what the topic is and why it exists                                                                      |
+| `Syntax`                 | grammar, clause order                                                                                    |
+| `Examples`               | worked examples                                                                                          |
+| `X VS Y`                 | comparison; always the literal uppercase `VS`, never `و`, `در برابر` or `یا`                             |
+| `Best Practices`         | recommended habits                                                                                       |
+| `Pitfalls (تله ها)`      | traps and common mistakes, one section (not three)                                                       |
+| `Troubleshooting`        | "you hit error X, do Y" (Pitfalls = "do not do this")                                                    |
+| `Performance (کارایی)`   | speed and cost                                                                                           |
+| `Exercises (تمرین ها)`   | see "Exercises" below; rare                                                                              |
+| `Cleanup (پاک سازی)`     | undo the setup                                                                                           |
+| `Cheat Sheet`            | code or command table to copy, no gloss                                                                  |
+| `Summary (خلاصه)`        | prose wrap-up, gloss only when needed (a Cheat Sheet is not a Summary)                                   |
 | `Equivalents (معادل ها)` | the same thing in another tool; qualify only when it helps (`PostgreSQL, Django Equivalents (معادل ها)`) |
-| `Sources (منابع)` | references |
+| `Sources (منابع)`        | references                                                                                               |
 
 The leading English keyword is the searchable token: `grep Pitfalls` or `grep Equivalents` must find that section in every note, whatever the subject. Subject-specific headings are free-form but keep the same formula and separators.
 
@@ -346,6 +351,7 @@ A note does not contain exercises by default. Practice belongs in a separate exe
 - `<div dir="rtl">` and `<div dir="ltr">` (the script adds them).
 - `<details>` and `<summary>` (use `^!` / `!^`).
 - `<span>`, inline styles, hand-written classes, and new color definitions. Exceptions: the shared Mermaid palette, the five KaTeX color names, and re-applying my own classes under the rules of "Hand-colored notes".
+- `<bdi>` and `<bdo>` by hand (use the `@@ x @@` direction marker).
 - Markers inside headings, code fences, inline code or math; markers used as ordinary text.
 - U+200C anywhere; Persian digits.
 - Persian inside code.
@@ -390,32 +396,32 @@ Six marks in this section (each `^^...^^` or `!!...!!` pair counts once, each fo
 
 ### 2. A right/wrong pair
 
-````markdown
+```markdown
 - ❌ ^^no column list^^ → the view breaks when a column is added
 - ✅ !!explicit column list!! → the result shape stays stable
-````
+```
 
 ### 3. Plain prose, and the topic preview
 
-````markdown
+```markdown
 SQL started in the 1970s as a research language at IBM and was standardized in the 1980s. Most database vendors added their own extensions, so code written for one database often needs small changes for another. The next sections use the common core that works almost everywhere.
 
 > [!NOTE]
 > اس کیو ال یک زبان استاندارد برای کار با دیتابیس های رابطه ای است، و چون هر دیتابیس کمی تفاوت دارد، در این جزوه فقط بخش مشترک را یاد میگیریم.
 > این جزوه سه قسمت را پوشش می دهد: SELECT, JOIN, WHERE.
-````
+```
 
 Nothing here is a term to learn, a rule or a trap, and the section carries no mark, so no recap is required - the trigger counts marks, not paragraphs. The NOTE is the topic preview: one sentence on what the topic is and why it exists, one naming the parts.
 
 ### 4. A formula colored by role
 
-````markdown
+```markdown
 $$x = \frac{\textcolor{blue}{-b} \pm \sqrt{\textcolor{red}{b^2 - 4ac}}}{\textcolor{green}{2a}}$$
 
 blue = center shift, red = discriminant (decides how many roots exist), green = scale
 
 The !!discriminant!! decides how many roots exist: negative gives none, zero gives one, positive gives two.
-````
+```
 
 The formula and its legend carry no mark and the sentence below carries one, so this section needs no recap.
 

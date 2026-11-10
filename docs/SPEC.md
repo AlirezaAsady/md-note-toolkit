@@ -39,10 +39,10 @@ layer 3 file - edit layer 1 and re-run.
 
 ### 2.1 Emphasis and highlight
 
-| Marker | Becomes | Intended meaning |
-|---|---|---|
-| `^^text^^` | `<span class="r">text</span>` | warning, error, difference |
-| `!!text!!` | `<span class="hy">text</span>` | key term, definition |
+| Marker     | Becomes                        | Intended meaning           |
+| ---------- | ------------------------------ | -------------------------- |
+| `^^text^^` | `<span class="r">text</span>`  | warning, error, difference |
+| `!!text!!` | `<span class="hy">text</span>` | key term, definition       |
 
 - Open and close on the **same line**. Nesting is not supported.
 - Non-greedy: `^^a^^ b ^^c^^` produces two spans, not one.
@@ -112,10 +112,10 @@ punctuation written without it becomes part of the token. Both spaces stay
 ¹ the reader sees an already committed version
 ```
 
-| Position | Generated class | Default look |
-|---|---|---|
-| inline | `p s22` | purple |
-| definition (column 0) | `g s22` | green |
+| Position              | Generated class | Default look |
+| --------------------- | --------------- | ------------ |
+| inline                | `p s22`         | purple       |
+| definition (column 0) | `g s22`         | green        |
 
 - Only the token is colored, never the explanation text.
 - `^^¹^^` or `!!¹!!` with the required spaces is stripped and treated
@@ -133,14 +133,38 @@ punctuation written without it becomes part of the token. Both spaces stay
 
 ### 2.4 Contexts that are never processed
 
-| Context | Behavior |
-|---|---|
-| fenced code (```` ``` ```` or `~~~~`) | passed through verbatim, markers stay literal |
-| inline code (`` `x` ``) | protected before any substitution |
-| heading lines (`#` at column 0-3) | skipped by the color stage |
+| Context                           | Behavior                                      |
+| --------------------------------- | --------------------------------------------- |
+| fenced code (` ``` ` or `~~~~`)   | passed through verbatim, markers stay literal |
+| inline code (`` `x` ``)           | protected before any substitution             |
+| heading lines (`#` at column 0-3) | skipped by the color stage                    |
 
 Consequence: markers inside a heading are **not** converted. Do not write `^^`
 or `!!` in a heading - put the emphasis in the body.
+
+### 2.5 Direction marker
+
+| Marker    | Becomes        | Intended meaning                                                                                                                                                |
+| --------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@@ x @@` | `<bdi>x</bdi>` | isolate a fragment whose first or last character is a neutral (bracket, quote, comma, slash) so it does not jump to the other side inside a right-aligned block |
+
+- One space right after the opening `@@` and right before the closing `@@` is
+  **part of the marker** and is removed. `@@version` is not a marker: it is
+  reported once per line and left as literal text.
+- Open and close on the **same line**, never nested, never inside a fenced code
+  block, inline code or heading. The two inner spaces are what make `@@ x @@`
+  distinguishable from `@@version`.
+- Non-greedy: `@@ a @@ b @@ c @@` produces two `<bdi>` tags, not one.
+- A `<bdi>` written by hand with attributes (`dir`, `class`) is neither
+  converted nor removed. It is reported as _not mapped_, because `reverse` only
+  maps the attribute-less form back.
+- Runs **last** in the color stage, after `^^`, `!!` and the gloss tokens, so a
+  marker may wrap a colored span: `@@ !!x!! @@`.
+- `reverse` maps `<bdi>X</bdi>` back to `@@ X @@`, adding one space on each
+  inner side and keeping `X` byte-for-byte, so `forward` -> `reverse` ->
+  `forward` is byte-identical.
+- Switch: `BIDI_ENABLED` in `md_color_gui.py`, with a checkbox in the GUI.
+  `False` leaves every `@@` untouched and silent.
 
 ---
 
@@ -170,9 +194,10 @@ or `!!` in a heading - put the emphasis in the body.
 ## 4. What the tool generates - never write it yourself
 
 `<div dir="rtl">`, `<div dir="ltr">`, `<details>`, `<summary>`,
-`<span class="...">` and the `<link rel="stylesheet">` line are all output. The
-reverse stage removes exactly these shapes, so anything you write by hand in that
-vocabulary risks being stripped or double-wrapped. Write markers only.
+`<span class="...">`, `<bdi>` and the `<link rel="stylesheet">` line are all
+output. The reverse stage removes exactly these shapes, so anything you write by
+hand in that vocabulary risks being stripped or double-wrapped. Write markers
+only.
 
 `reverse` maps classes back with `RULES` (default `h=!!, *=^^`): only the
 **first** class of a span counts, the first matching prefix wins, and `*` is the
@@ -210,6 +235,12 @@ line so anyone can change it in place.
    The color and reverse stages handle both fence styles correctly.
 5. **A stray `!^` with no opening marker** switches the rest of the file into raw
    mode until the next `!^`.
+6. **`warned=` in the summary counts files, not warnings.** A file with three
+   rejected lines still reports `warned=1`. Every rejection is printed on its own
+   line with its number and reason, and grepping the log for `Line ` finds them
+   all. The summary string is asserted by `test_md_batch.py` and means the same
+   thing for every stage, so the detail stays in the log and the count stays a
+   count of files to look at.
 
 ---
 
@@ -218,13 +249,16 @@ line so anyone can change it in place.
 Nothing is healed silently. Every anomaly produces a greppable marker in the
 output and a line in the log:
 
-| Situation | Result |
-|---|---|
-| odd `^^` or `!!` on a line | line left unchanged + warning with the line number |
-| unclosed HTML tag | an **empty** closing tag written right after the open one + warning |
-| unclosed `^!` block | warning, file still written |
-| invalid `RTL_PATTERN` or `HEAD_PATTERN` | warning, falls back to the default, run continues |
-| file already processed | `Already fixed. Nothing to do.` and no write |
+| Situation                               | Result                                                              |
+| --------------------------------------- | ------------------------------------------------------------------- |
+| odd `^^` or `!!` on a line              | line left unchanged + warning with the line number                  |
+| unclosed, nested or empty `@@` pair     | line left unchanged + warning with the line number                  |
+| `@@` pair containing a `\|`             | line left unchanged + warning; it would cross a table cell          |
+| `@@` with no inner space                | reported once per line, left as literal text                        |
+| unclosed HTML tag                       | an **empty** closing tag written right after the open one + warning |
+| unclosed `^!` block                     | warning, file still written                                         |
+| invalid `RTL_PATTERN` or `HEAD_PATTERN` | warning, falls back to the default, run continues                   |
+| file already processed                  | `Already fixed. Nothing to do.` and no write                        |
 
 The empty-tag marker is intentional: searching the output for
 `<div[^>]*>\s*\n</div>` finds every place the tool had to compensate, which is
@@ -237,16 +271,16 @@ where to look first when a note renders wrong.
 The scripts apply grammar, not language. To reuse them for another writing
 system:
 
-| Goal | Change |
-|---|---|
+| Goal                                       | Change                                                                                                                                                         |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | a different script counts as right-to-left | `RTL_PATTERN` in `md_rtl_advance_gui.py` (also a GUI field). Keep LTR scripts out - including them wraps Latin or CJK text in an RTL div and breaks the layout |
-| notes are fully left-to-right | leave `SMART_RTL = True` and point `RTL_PATTERN` at a range your text never contains, or run the color stage only and skip RTL |
-| different fold markers | `FOLD_OPEN` and `FOLD_CLOSE` (GUI fields), plus `DETAILS_OPEN_RE` and `DETAILS_CLOSE` in `md_color_gui.py` |
-| different gloss alphabet | `FOOT_OPEN` in both `md_color_gui.py` and `md_reverse_gui.py` |
-| different colors | `md.css`, plus `RULES` in `md_reverse_gui.py` so the round trip still closes |
-| different head line | `HEAD_PATTERN` |
-| your own summary text | `DEFAULT_SUMMARY` in both files, kept equal |
-| section vocabulary, caps, table rules | your style file - see `STYLE` for the shape of one |
+| notes are fully left-to-right              | leave `SMART_RTL = True` and point `RTL_PATTERN` at a range your text never contains, or run the color stage only and skip RTL                                 |
+| different fold markers                     | `FOLD_OPEN` and `FOLD_CLOSE` (GUI fields), plus `DETAILS_OPEN_RE` and `DETAILS_CLOSE` in `md_color_gui.py`                                                     |
+| different gloss alphabet                   | `FOOT_OPEN` in both `md_color_gui.py` and `md_reverse_gui.py`                                                                                                  |
+| different colors                           | `md.css`, plus `RULES` in `md_reverse_gui.py` so the round trip still closes                                                                                   |
+| different head line                        | `HEAD_PATTERN`                                                                                                                                                 |
+| your own summary text                      | `DEFAULT_SUMMARY` in both files, kept equal                                                                                                                    |
+| section vocabulary, caps, table rules      | your style file - see `STYLE` for the shape of one                                                                                                             |
 
 ---
 
