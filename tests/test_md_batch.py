@@ -8,15 +8,29 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-ROOT = Path(__file__).resolve().parent.parent
+# ---------- config: the only block to review when porting between repos ----------
+ROOT = Path(__file__).resolve().parent.parent  # project root: md_batch.py lives there
 sys.path.insert(0, str(ROOT))
+
+RAW = "سلام ^^قرمز^^ و !!رنگ!! ¹* متن\n\n¹* توضیح\n\nEnglish\n\n"
+CODE = '```python\nx = "^^keep^^ ¹ code"\n<details>\n</details>\nnext\n```\n'
+# Every module must import without opening a window (checked in a subprocess).
+MODULES = (
+    "md_batch",
+    "md_batch_gui",
+    "md_color_gui",
+    "md_reverse_gui",
+    "md_rtl_advance_gui",
+    "md_menu_tools",
+)
+MENU_TARGET_NAME = "md_color_gui.py"  # MenuToolsTests edits a temp copy of this file
+SKIP_OPEN = "<!-- rtl-off -->"  # default rtl-off sentinel pair (RtlSkipTests)
+SKIP_CLOSE = "<!-- /rtl-off -->"
+# ---------- end config ----------
 
 import md_batch as batch  # noqa: E402
 import md_batch_gui as gui  # noqa: E402
 import md_menu_tools as tools  # noqa: E402
-
-RAW = "سلام ^^قرمز^^ و !!رنگ!! ¹* متن\n\n¹* توضیح\n\nEnglish\n\n"
-CODE = '```python\nx = "^^keep^^ ¹ code"\n<details>\n</details>\nnext\n```\n'
 
 
 class NtOs:
@@ -124,7 +138,7 @@ class BatchTests(FileFixture):
         self.assertIn("^^قرمز^^", text)
         self.assertIn("!!رنگ!!", text)
         self.assertIn(" ¹* ", text)
-        self.assertNotIn("<link", text)
+        self.assertNotIn('<link', text)
         self.assertIn(CODE, text)
         self.assertEqual(src.read_bytes(), final)
         self.run_one(result.destination, "forward")
@@ -154,9 +168,7 @@ class BatchTests(FileFixture):
         bad = self.folder / "bad.md"
         bad.write_bytes(b"\xff")
         good = self.make()
-        results = batch.run_batch(
-            [self.folder / "missing.md", bad, good], "color", True
-        )
+        results = batch.run_batch([self.folder / "missing.md", bad, good], "color", True)
         self.assertEqual([r.status for r in results], ["error", "error", "saved"])
         self.assertEqual(bad.read_bytes(), b"\xff")
 
@@ -188,9 +200,7 @@ class BatchTests(FileFixture):
 
     def test_duplicate_paths_run_once(self):
         src = self.make()
-        results = batch.run_batch(
-            [src, f'"{src}"', src.parent / "." / src.name], "forward"
-        )
+        results = batch.run_batch([src, f'"{src}"', src.parent / "." / src.name], "forward")
         self.assertEqual(len(results), 1)
         self.assertEqual(len(self.recycled), 1)
 
@@ -222,10 +232,8 @@ class BatchTests(FileFixture):
 
     def test_normalizer_preserves_both_fence_styles(self):
         for fence in ("```", "~~~~"):
-            text = f"{fence}\n<details>\n</details>\nnext\n{fence}\n"
-            self.assertEqual(
-                batch.normalize_for_reverse(text.split("\n")), text.split("\n")
-            )
+            text = f'{fence}\n<details>\n</details>\nnext\n{fence}\n'
+            self.assertEqual(batch.normalize_for_reverse(text.split("\n")), text.split("\n"))
 
     def test_reverse_tilde_fence_keeps_html_example(self):
         text = '~~~html\n<div dir="rtl">\n\n<span class="r">red</span>\n\n</div>\n~~~\n'
@@ -235,10 +243,7 @@ class BatchTests(FileFixture):
         self.assertEqual(src.read_text(encoding="utf-8"), text)
 
     def test_reverse_preserves_long_and_unclosed_fences(self):
-        for text in (
-            '````html\n```\n<span class="r">red</span>\n````\n',
-            '~~~html\n<span class="r">red</span>\n',
-        ):
+        for text in ('````html\n```\n<span class="r">red</span>\n````\n', '~~~html\n<span class="r">red</span>\n'):
             src = self.make(text=text)
             self.run_one(src, "reverse")
             self.assertEqual(src.read_text(encoding="utf-8"), text)
@@ -251,9 +256,7 @@ class BatchTests(FileFixture):
     def test_warning_survives_rtl_stage_failure(self):
         src = self.make(text="سلام ^^broken\n")
         original = src.read_bytes()
-        with patch.object(
-            batch.md_rtl_advance_gui, "process_file", side_effect=OSError("blocked")
-        ):
+        with patch.object(batch.md_rtl_advance_gui, "process_file", side_effect=OSError("blocked")):
             result = batch.run_batch([src], "forward")[0]
         self.assertEqual(result.status, "error")
         self.assertTrue(result.warnings)
@@ -261,11 +264,7 @@ class BatchTests(FileFixture):
         self.assertFalse(list(self.folder.glob("*.tmp")))
 
     def test_validation(self):
-        for paths, mode, new_file in (
-            ([], "color", False),
-            (["a"], "forward", True),
-            (["a"], "all", False),
-        ):
+        for paths, mode, new_file in (([], "color", False), (["a"], "forward", True), (["a"], "all", False)):
             with self.assertRaises(ValueError):
                 batch.run_batch(paths, mode, new_file)
         with self.assertRaises(ValueError):
@@ -275,28 +274,14 @@ class BatchTests(FileFixture):
         first = self.make("first file.md")
         second = self.make("دوم.md")
         result = subprocess.run(
-            [
-                sys.executable,
-                str(ROOT / "md_batch.py"),
-                "color",
-                str(first),
-                str(second),
-                "--new",
-            ],
-            capture_output=True,
-            encoding="utf-8",
+            [sys.executable, str(ROOT / "md_batch.py"), "color", str(first), str(second), "--new"],
+            capture_output=True, encoding="utf-8",
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("saved=2", result.stdout)
         result = subprocess.run(
-            [
-                sys.executable,
-                str(ROOT / "md_batch.py"),
-                "reverse",
-                str(self.folder / "missing.md"),
-            ],
-            capture_output=True,
-            encoding="utf-8",
+            [sys.executable, str(ROOT / "md_batch.py"), "reverse", str(self.folder / "missing.md")],
+            capture_output=True, encoding="utf-8",
         )
         self.assertEqual(result.returncode, 1)
         self.assertIn("failed=1", result.stdout)
@@ -306,32 +291,21 @@ class BatchTests(FileFixture):
         original = src.read_bytes()
         result = subprocess.run(
             [sys.executable, str(ROOT / "md_batch.py"), "forward", str(src), "--new"],
-            capture_output=True,
-            encoding="utf-8",
+            capture_output=True, encoding="utf-8",
         )
         self.assertEqual(result.returncode, 2)
         self.assertEqual(src.read_bytes(), original)
 
     def test_import_does_not_open_window(self):
-        # Every module, not just the two the suite imports: a Windows-only
+        # Every module, not just the ones the suite imports: a Windows-only
         # top-level import anywhere here is invisible until Linux runs it.
-        modules = (
-            "md_batch",
-            "md_batch_gui",
-            "md_color_gui",
-            "md_reverse_gui",
-            "md_rtl_advance_gui",
-            "md_menu_tools",
-        )
         result = subprocess.run(
             [
                 sys.executable,
                 "-c",
-                f"import {', '.join(modules)}, tkinter; assert tkinter._default_root is None",
+                f"import {', '.join(MODULES)}, tkinter; assert tkinter._default_root is None",
             ],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
+            cwd=ROOT, capture_output=True, text=True,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
@@ -388,9 +362,7 @@ class GuiTests(FileFixture):
         self.root.clipboard_append(f'"{first}"\n\n"{second}"\n')
         self.app.paste()
         self.assertEqual(self.app.paths(), [str(first), str(second)])
-        with patch.object(
-            gui.filedialog, "askopenfilenames", return_value=(str(first),)
-        ):
+        with patch.object(gui.filedialog, "askopenfilenames", return_value=(str(first),)):
             self.app.browse()
         self.assertEqual(len(self.app.paths()), 2)
         self.app.clear_paths()
@@ -406,13 +378,9 @@ class GuiTests(FileFixture):
         self.app.close()
         self.assertTrue(self.root.winfo_exists())
         self.wait_for_job()
-        self.assertEqual(
-            [r.status for r in self.app.last_report], ["saved", "error", "saved"]
-        )
+        self.assertEqual([r.status for r in self.app.last_report], ["saved", "error", "saved"])
         self.assertEqual(len(self.recycled), 2)
-        self.assertEqual(
-            self.app.status_var.get(), "Finished: 3 files; failed=1; warned=1"
-        )
+        self.assertEqual(self.app.status_var.get(), "Finished: 3 files; failed=1; warned=1")
         self.assertFalse(self.app.run_button.instate(["disabled"]))
         self.assertTrue(self.app.new_check.instate(["disabled"]))
 
@@ -437,8 +405,8 @@ class MenuToolsTests(FileFixture):
         super().setUp()
         self.css = self.folder / "md.css"
         self.css.write_text("body{}", encoding="utf-8")
-        self.target = self.folder / "md_color_gui.py"
-        self.target.write_bytes((ROOT / "md_color_gui.py").read_bytes())
+        self.target = self.folder / MENU_TARGET_NAME
+        self.target.write_bytes((ROOT / MENU_TARGET_NAME).read_bytes())
         self.original = self.target.read_bytes()
         self.patcher2 = patch.object(tools, "TARGET", self.target)
         self.patcher2.start()
@@ -550,7 +518,7 @@ class FoldBodyTests(FileFixture):
         self.run_one(src, "forward")
         text = src.read_text(encoding="utf-8")
         self.assertNotIn('<div dir="rtl">', text)
-        self.assertIn("```python\nx = 1  # سلام\n```", text)
+        self.assertIn('```python\nx = 1  # سلام\n```', text)
         self.assertIn('<div dir="ltr">', text)
 
     def test_rtl_mode_wraps_marker_body(self):
@@ -594,85 +562,101 @@ class FoldBodyTests(FileFixture):
         self.assertIn("Unclosed fold block", " ".join(result.warnings))
 
 
-class FoldReverseTests(FileFixture):
-    """Reverse recognises a fold by tag and unwraps the body wrappers."""
+class RtlSkipTests(FileFixture):
+    """The RTL stage passes closed rtl-off sentinel pairs through untouched."""
 
-    MIXED = "^! جواب\n\nسلام بالا\n\n```python\nx = 1\n```\n\nسلام پایین\n\n!^\n"
+    OPEN = SKIP_OPEN
+    CLOSE = SKIP_CLOSE
 
-    def test_rtl_wraps_persian_on_both_sides_of_a_code_block(self):
+    def test_pipe_table_inside_pair_passes_through(self):
+        table = "| ستون | مقدار |\n| --- | --- |\n| الف | GETDATE() |"
         src = self.make(
-            text="^!\n\nسلام بالا\n\n```python\nx = 1\n```\n\nسلام پایین\n\n!^\n"
+            text=f"سلام\n\n{self.OPEN}\n{table}\n{self.CLOSE}\n\nEnglish\n"
         )
         result = self.run_one(src, "rtl", True)
         text = result.destination.read_text(encoding="utf-8")
-        self.assertIn('<div dir="rtl">\n\nسلام بالا\n\n</div>', text)
-        self.assertIn('<div dir="rtl">\n\nسلام پایین\n\n</div>', text)
-        self.assertIn("```python\nx = 1\n```", text)
-        self.assertEqual(text.count('<div dir="rtl">'), 2)
-
-    def test_roundtrip_restores_markers_and_removes_wrappers(self):
-        src = self.make(text=self.MIXED)
-        self.run_one(src, "forward")
-        result = self.run_one(src, "reverse", True)
-        text = result.destination.read_text(encoding="utf-8")
-        self.assertNotIn("<div", text)
-        self.assertNotIn("<details", text)
-        self.assertNotIn("<summary", text)
-        self.assertNotIn("<link", text)
-        self.assertIn("^! جواب", text)
-        self.assertIn("!^", text)
-        self.assertIn("سلام بالا", text)
-        self.assertIn("سلام پایین", text)
-        self.assertIn("```python\nx = 1\n```", text)
-
-    def test_roundtrip_is_stable_on_a_second_cycle(self):
-        src = self.make(text=self.MIXED)
-        self.run_one(src, "forward")
-        first = self.run_one(src, "reverse", True).destination
-        once = first.read_bytes()
-        self.run_one(first, "forward")
-        second = self.run_one(first, "reverse", True).destination
-        self.assertEqual(second.read_bytes(), once)
-
-    def test_reverse_accepts_ltr_parent_and_english_title(self):
-        src = self.make(
-            text='<details dir="ltr">\n<summary>Answer</summary>\n\n'
-            '<div dir="ltr">\n\nx = 1\n\n</div>\n</details>\n'
-        )
-        result = self.run_one(src, "reverse", True)
-        text = result.destination.read_text(encoding="utf-8")
-        self.assertIn("^! Answer", text)
-        self.assertIn("!^", text)
-        self.assertNotIn("<details", text)
+        self.assertIn(f"{self.OPEN}\n{table}\n{self.CLOSE}", text)
+        self.assertIn('<div dir="rtl">\n\nسلام\n\n</div>', text)
+        self.assertNotIn('<div dir="rtl">\n\n|', text)
         self.assertEqual(result.warnings, [])
 
-    def test_reverse_accepts_attributes_on_the_summary(self):
-        src = self.make(
-            text='<details dir="rtl">\n<summary dir="ltr">Answer</summary>\n\n'
-            '<div dir="ltr">\n\nx = 1\n\n</div>\n</details>\n'
-        )
-        result = self.run_one(src, "reverse", True)
+    def test_unclosed_open_warns_and_content_is_processed(self):
+        src = self.make(text=f"{self.OPEN}\n\nسلام دنیا\n")
+        result = self.run_one(src, "rtl", True)
         text = result.destination.read_text(encoding="utf-8")
-        self.assertIn("^! Answer", text)
-        self.assertNotIn("<summary", text)
+        self.assertIn('<div dir="rtl">\n\nسلام دنیا\n\n</div>', text)
+        self.assertIn(self.OPEN, text)
+        self.assertIn("unclosed RTL skip sentinel", " ".join(result.warnings))
 
-    def test_reverse_accepts_a_fold_without_the_ltr_div(self):
-        src = self.make(
-            text='<details dir="rtl">\n<summary>جواب</summary>\n\nسلام\n\n</details>\n'
-        )
-        result = self.run_one(src, "reverse", True)
+    def test_sentinel_inside_fence_is_literal(self):
+        src = self.make(text=f"```\n{self.OPEN}\nسلام\n{self.CLOSE}\n```\n")
+        result = self.run_one(src, "rtl", True)
         text = result.destination.read_text(encoding="utf-8")
-        self.assertIn("^! جواب", text)
-        self.assertIn("سلام", text)
-        self.assertIn("!^", text)
-        self.assertNotIn("<details", text)
+        self.assertIn(f"```\n{self.OPEN}\nسلام\n{self.CLOSE}\n```", text)
+        self.assertNotIn('<div dir="rtl">', text)
+        self.assertEqual(result.warnings, [])
 
-    def test_details_without_summary_warns_and_stays(self):
-        src = self.make(text='<details dir="rtl">\nسلام\n</details>\n')
-        result = self.run_one(src, "reverse", True)
+    def test_pair_inside_fold_body_passes_through(self):
+        src = self.make(
+            text=f"^!\n\nسلام\n\n{self.OPEN}\n| ب | ج |\n{self.CLOSE}\n\n!^\n"
+        )
+        result = self.run_one(src, "rtl", True)
         text = result.destination.read_text(encoding="utf-8")
-        self.assertIn('<details dir="rtl">', text)
-        self.assertTrue(any("expected pattern" in w for w in result.warnings))
+        self.assertIn(f"{self.OPEN}\n| ب | ج |\n{self.CLOSE}", text)
+        self.assertIn('<div dir="rtl">\n\nسلام\n\n</div>', text)
+        self.assertEqual(result.warnings, [])
+
+    def test_unclosed_inside_fold_body_warns(self):
+        src = self.make(text=f"^!\n\n{self.OPEN}\n\nسلام\n\n!^\n")
+        result = self.run_one(src, "rtl", True)
+        text = result.destination.read_text(encoding="utf-8")
+        self.assertIn('<div dir="rtl">\n\nسلام\n\n</div>', text)
+        self.assertIn("unclosed RTL skip sentinel", " ".join(result.warnings))
+
+    def test_empty_list_disables_the_feature(self):
+        src = self.make(text=f"{self.OPEN}\n\nسلام\n\n{self.CLOSE}\n")
+        with patch.object(batch.md_rtl_advance_gui, "RTL_SKIP", []):
+            result = self.run_one(src, "rtl", True)
+        text = result.destination.read_text(encoding="utf-8")
+        self.assertIn('<div dir="rtl">', text)
+        self.assertEqual(result.warnings, [])
+
+    def test_custom_pairs_all_active(self):
+        src = self.make(
+            text="<!-- a -->\nسلام یک\n<!-- /a -->\n\n"
+            "<!-- b -->\nسلام دو\n<!-- /b -->\n"
+        )
+        pairs = [("<!-- a -->", "<!-- /a -->"), ("<!-- b -->", "<!-- /b -->")]
+        with patch.object(batch.md_rtl_advance_gui, "RTL_SKIP", pairs):
+            result = self.run_one(src, "rtl", True)
+        text = result.destination.read_text(encoding="utf-8")
+        self.assertNotIn('<div dir="rtl">', text)
+        self.assertIn("<!-- a -->\nسلام یک\n<!-- /a -->", text)
+        self.assertIn("<!-- b -->\nسلام دو\n<!-- /b -->", text)
+        self.assertEqual(result.warnings, [])
+
+    def test_roundtrip_keeps_the_skip_block_verbatim(self):
+        block = (
+            f"{self.OPEN}\n| ستون | GETDATE() |\n| --- | --- |\n{self.CLOSE}"
+        )
+        src = self.make(text=f"# Title\n\n{block}\n\nسلام\n")
+        self.run_one(src, "forward")
+        self.assertIn(block, src.read_text(encoding="utf-8"))
+        self.run_one(src, "reverse")
+        self.assertIn(block, src.read_text(encoding="utf-8"))
+
+    def test_parse_skip_pairs_box_text(self):
+        rtl = batch.md_rtl_advance_gui
+        box = ", ".join(f"{o} => {c}" for o, c in rtl.RTL_SKIP)
+        self.assertEqual(rtl.parse_skip_pairs(box), tuple(rtl.RTL_SKIP))
+        self.assertEqual(rtl.parse_skip_pairs(""), ())
+        self.assertEqual(rtl.parse_skip_pairs("  , junk, a => , => b"), ())
+        self.assertEqual(
+            rtl.parse_skip_pairs(
+                "<!-- a --> => <!-- /a -->, <!-- b --> => <!-- /b -->"
+            ),
+            (("<!-- a -->", "<!-- /a -->"), ("<!-- b -->", "<!-- /b -->")),
+        )
 
 
 class FoldReverseTests(FileFixture):
@@ -681,9 +665,7 @@ class FoldReverseTests(FileFixture):
     MIXED = "^! جواب\n\nسلام بالا\n\n```python\nx = 1\n```\n\nسلام پایین\n\n!^\n"
 
     def test_rtl_wraps_persian_on_both_sides_of_a_code_block(self):
-        src = self.make(
-            text="^!\n\nسلام بالا\n\n```python\nx = 1\n```\n\nسلام پایین\n\n!^\n"
-        )
+        src = self.make(text="^!\n\nسلام بالا\n\n```python\nx = 1\n```\n\nسلام پایین\n\n!^\n")
         result = self.run_one(src, "rtl", True)
         text = result.destination.read_text(encoding="utf-8")
         self.assertIn('<div dir="rtl">\n\nسلام بالا\n\n</div>', text)
