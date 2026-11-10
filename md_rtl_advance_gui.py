@@ -34,6 +34,14 @@ HEAD_PATTERN = r'^\s*<link\s+rel="stylesheet"'
 FOLD_OPEN = ("^!",)  # e.g. "^!" or "^! My title"
 FOLD_CLOSE = ("!^",)  # e.g. "!^"
 
+# RTL skip sentinels: (open line, close line) pairs, exact match after strip.
+# Everything between a closed pair passes the RTL wrapper untouched, like a
+# code block; both sentinel lines stay in the output. Only comment-shaped
+# strings are invisible in the render - any other string shows up as text.
+# Empty list = feature off. An open sentinel with no close line warns, and the
+# content after it is processed normally (only a closed pair skips).
+RTL_SKIP = [("<!-- rtl-off -->", "<!-- /rtl-off -->")]
+
 # True -> a fold body is processed like the rest of the file: RTL text groups
 # get <div dir="rtl">, code fences and raw HTML stay untouched. The <div
 # dir="ltr"> the color stage writes inside a fold is a direction baseline, not
@@ -173,18 +181,36 @@ def parse_markers(text):
     return tuple(part.strip() for part in text.split(",") if part.strip())
 
 
-def find_unclosed(lines, handle_html, fold_open, fold_close):
+def parse_skip_pairs(text):
+    # Box text "open => close, open2 => close2" -> tuple of (open, close)
+    # pairs. Empty -> () = feature off; junk parts are ignored like elsewhere.
+    pairs = []
+    for part in text.split(","):
+        if "=>" not in part:
+            continue
+        open_s, close_s = (x.strip() for x in part.split("=>", 1))
+        if open_s and close_s:
+            pairs.append((open_s, close_s))
+    return tuple(pairs)
+
+
+def find_unclosed(lines, handle_html, fold_open, fold_close, skip_pairs=()):
     # Pass 1 -> {line index: [tag names opened there and never closed]}
     stack = []
     unclosed = {}
     inside_code = False
     inside_fold = False
+    skip_close = None  # close sentinel of the skip block being passed over
 
     def drop(idx, name):
         unclosed.setdefault(idx, []).append(name)
 
     for idx, line in enumerate(lines):
         s = line.strip()
+        if skip_close is not None:
+            if s == skip_close:
+                skip_close = None
+            continue
         if inside_fold:
             if s in fold_close:
                 inside_fold = False
@@ -193,6 +219,14 @@ def find_unclosed(lines, handle_html, fold_open, fold_close):
             inside_code = not inside_code
             continue
         if inside_code or not handle_html:
+            continue
+        for open_s, close_s in skip_pairs:
+            if s == open_s and any(
+                lines[j].strip() == close_s for j in range(idx + 1, len(lines))
+            ):
+                skip_close = close_s  # a closed pair is opaque, like a fence
+                break
+        if skip_close is not None:
             continue
         if s in fold_close or s.startswith(fold_open):
             inside_fold = True
@@ -259,13 +293,14 @@ def flush_keep_blanks(text_lines, output, smart, levels, exclude, rtl_re):
 
 
 def wrap_lines(lines, smart, levels, exclude, rtl_re, handle_html, autoclose,
-               fold_open, fold_close, fold_body, in_fold=False):
+               fold_open, fold_close, fold_body, in_fold=False, skip_pairs=()):
     # The wrapping state machine, reused for the whole file and for every fold
     # body. Returns (output lines, stats); stats carries the unclosed-tag count,
     # the HTML depth left open and the unclosed-fold flag so the caller reports
     # them once for the whole file.
-    unclosed = find_unclosed(lines, handle_html, fold_open, fold_close)
-    stats = {"unclosed": sum(len(v) for v in unclosed.values()), "depth": 0, "fold": False}
+    unclosed = find_unclosed(lines, handle_html, fold_open, fold_close, skip_pairs)
+    stats = {"unclosed": sum(len(v) for v in unclosed.values()), "depth": 0,
+             "fold": False, "skip": 0}
     out, text = [], []
     inside_code, html_depth = False, 0
     inside_fold = False  # fold_body off: the whole block stays raw, as before
@@ -289,6 +324,29 @@ def wrap_lines(lines, smart, levels, exclude, rtl_re, handle_html, autoclose,
         if inside_code:  # must come before the HTML check
             out.append(line)
             i += 1
+            continue
+        skipped = False
+        for open_s, close_s in skip_pairs:
+            if s != open_s:
+                continue
+            end = next(
+                (j for j in range(i + 1, len(lines)) if lines[j].strip() == close_s),
+                None,
+            )
+            if end is None:
+                # No close line: warn once, then process normally - only a
+                # closed pair skips. The open line itself is just a comment.
+                stats["skip"] += 1
+            else:
+                flush_keep_blanks(text, out, smart, levels, exclude, rtl_re)
+                text = []
+                out.append(line)
+                out.extend(lines[i + 1:end])  # verbatim, like a code block
+                out.append(lines[end])
+                i = end + 1
+                skipped = True
+            break
+        if skipped:
             continue
         end = None
         if not html_depth:
@@ -317,7 +375,7 @@ def wrap_lines(lines, smart, levels, exclude, rtl_re, handle_html, autoclose,
                 tail -= 1
             inner, inner_stats = wrap_lines(
                 body[lead:tail], smart, levels, exclude, rtl_re, handle_html,
-                autoclose, fold_open, fold_close, fold_body, True,
+                autoclose, fold_open, fold_close, fold_body, True, skip_pairs,
             )
             out.append(line)
             out.extend(body[:lead])
@@ -329,6 +387,7 @@ def wrap_lines(lines, smart, levels, exclude, rtl_re, handle_html, autoclose,
             stats["unclosed"] += inner_stats["unclosed"]
             stats["depth"] += inner_stats["depth"]
             stats["fold"] = stats["fold"] or inner_stats["fold"]
+            stats["skip"] += inner_stats["skip"]
             i = end + 1
             continue
         if handle_html and (
@@ -382,6 +441,7 @@ def process_file(
     heading_levels=None,
     rtl_pattern=None,
     fold_body=None,
+    skip_pairs=None,
 ):
     # Reads `path`, applies the RTL wrapping and RETURNS (text, warnings).
     # text is the whole result in the SOURCE file's line ending (LF or CRLF),
@@ -400,6 +460,7 @@ def process_file(
     heading_levels = HEADING_LEVELS if heading_levels is None else heading_levels
     rtl_pattern = RTL_PATTERN if rtl_pattern is None else rtl_pattern
     fold_body = FOLD_BODY if fold_body is None else fold_body
+    skip_pairs = RTL_SKIP if skip_pairs is None else skip_pairs
     exclude, levels = parse_levels(heading_levels)
     # Empty value disables the feature
     fold_open = tuple(fold_open) if fold_open else ()
@@ -450,7 +511,7 @@ def process_file(
 
     output, stats = wrap_lines(
         lines, smart, levels, exclude, rtl_re, handle_html, autoclose,
-        fold_open, fold_close, fold_body,
+        fold_open, fold_close, fold_body, skip_pairs=skip_pairs,
     )
     if stats["depth"] > 0:
         warnings.append(f"Unclosed HTML block (depth = {stats['depth']}).")
@@ -459,6 +520,11 @@ def process_file(
         warnings.append(f"{stats['unclosed']} unclosed HTML tag(s) found.{tail}")
     if stats["fold"]:
         warnings.append("Unclosed fold block (no close marker found).")
+    if stats["skip"]:
+        warnings.append(
+            f"{stats['skip']} unclosed RTL skip sentinel(s); "
+            "content after them processed normally."
+        )
 
     output = head + output
     return eol.join(output) + eol, warnings
@@ -512,6 +578,9 @@ def main():
     fold_body_var = tk.BooleanVar(value=FOLD_BODY)
     heading_var = tk.StringVar(value=HEADING_LEVELS)
     rtl_var = tk.StringVar(value=RTL_PATTERN)
+    skip_var = tk.StringVar(
+        value=", ".join(f"{o} => {c}" for o, c in RTL_SKIP)
+    )
     replace_var = tk.BooleanVar(value=REPLACE_ORIGINAL)
 
     def get_path():
@@ -622,6 +691,7 @@ def main():
                 fold_body=fold_body_var.get(),
                 heading_levels=heading_var.get().strip(),
                 rtl_pattern=rtl_var.get().strip(),
+                skip_pairs=parse_skip_pairs(skip_var.get()),
             )
         except Exception as e:
             write_log(f"خطا: {e}")
@@ -708,6 +778,14 @@ def main():
     )
     ttk.Entry(patterns, textvariable=fold_close_var).grid(
         row=5, column=1, sticky="ew", padx=(6, 0)
+    )
+
+    ttk.Label(
+        patterns,
+        text="نگهبان‌های رد شدن از رپر: باز => بسته | جفت‌ها با کاما | خالی = خاموش",
+    ).grid(row=6, column=0, columnspan=2, sticky="w", pady=(8, 0))
+    ttk.Entry(patterns, textvariable=skip_var).grid(
+        row=7, column=0, columnspan=2, sticky="ew", pady=(0, 4)
     )
 
     # ردیف 4 و 5: سطح عنوان‌هایی که همیشه wrap می‌شوند (فقط حالت هوشمند).
